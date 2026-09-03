@@ -819,6 +819,11 @@ class zmod_color:
             self.gcode.run_script_from_command("G28 Y\nM400")
 
         active_t = self._get_active_extruder(gcmd)
+
+        if active_t == t_index:
+            gcmd.respond_info(f"T{active_t} in Head. Skeep...")
+            return
+
         if active_t != -1:
             if silent == 0:
                 raise gcmd.error(f"Невозможно взять T={t_index}. Каретка занята экструдером T={active_t}! Сначала вызовите T_OUT.")
@@ -828,9 +833,6 @@ class zmod_color:
                 if active_t != -1:
                     raise gcmd.error(f"Невозможно взять T={t_index}. Каретка занята экструдером T={active_t}! Сначала вызовите T_OUT.")
 
-        if active_t == t_index:
-            gcmd.respond_info(f"T{active_t} in Head. Skeep...")
-            return
 
         try:
             with open(FFCONFIG + 'extruder.json', 'r') as file:
