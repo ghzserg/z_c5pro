@@ -605,9 +605,11 @@ class zmod_color:
         self.gcode.register_command('_CHANGE_FILAMENT', self.cmd_CHANGE_FILAMENT)
         self.gcode.register_command('RUN_ZCOLOR', self.cmd_RUN_ZCOLOR)
         self.gcode.register_command('CHANGE_ZCOLOR', self.cmd_CHANGE_ZCOLOR)
-        self.gcode.register_command('_T_IN', self.cmd_T_IN)
-        self.gcode.register_command('_T_OUT', self.cmd_T_OUT)
-        self.gcode.register_command('_T_STATUS', self.cmd_T_STATUS)
+
+        self.gcode.register_command('_T_IN', self.cmd_T_IN)             # Загрузить в голову Tx
+        self.gcode.register_command('_T_OUT', self.cmd_T_OUT)           # Освободить голову
+        self.gcode.register_command('_T_STATUS', self.cmd_T_STATUS)     # Получить статус
+        self.gcode.register_command('_T_G28', self.cmd_T_G28)           # Защищенный G28
 
         self.printer.register_event_handler("klippy:ready", self._handle_ready)
 
@@ -802,13 +804,39 @@ class zmod_color:
         gcmd.respond_raw(f"// Door: {door_state}")
         gcmd.respond_raw(f"// Top: {top_state}")
 
+    def cmd_T_G28(self, gcmd):
+        params = gcmd.get_command_parameters()
+
+        params_str = "".join(params.keys()).lower()
+
+        if not params_str:
+            params_str = "xyz"
+
+        toolhead = self.printer.lookup_object('toolhead')
+        homed_axes = toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
+
+        if 'x' in params_str:
+            if 'x' not in homed_axes:
+                self.gcode.run_script_from_command("G28 X\nM400")
+
+        if 'y' in params_str:
+            if 'y' not in homed_axes:
+                self.gcode.run_script_from_command("G28 Y\nM400")
+
+        active_t = self._get_active_extruder(gcmd)
+        if active_t != -1:
+            self.cmd_T_OUT(gcmd)
+
+        if 'z' in params_str:
+            if 'z' not in homed_axes:
+                self.gcode.run_script_from_command("G28 Z\nM400")
 
     # Вставить экструдер в голову
     def cmd_T_IN(self, gcmd):
         t_index = gcmd.get_int('T', None)
         if t_index is None or t_index < 0 or t_index > 3:
             raise gcmd.error("Error: T parameter is required and must be between 0 and 3")
-        silent = gcmd.get_int('SILENT', 0)
+        silent = gcmd.get_int('SILENT', 1)
 
         toolhead = self.printer.lookup_object('toolhead')
         homed_axes = toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
@@ -917,9 +945,20 @@ class zmod_color:
         if active_t != t_index:
             raise gcmd.error(f"Неверный экструдер в голове. Должен быть T{t_index} != T{active_t}")
 
+        if 'z' not in homed_axes:
+            self.gcode.run_script_from_command("G28 Z\nM400")
+
     # Вернуть экструдер на место
     def cmd_T_OUT(self, gcmd):
-        silent = gcmd.get_int('SILENT', 0)
+        silent = gcmd.get_int('SILENT', 1)
+
+        toolhead = self.printer.lookup_object('toolhead')
+        homed_axes = toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
+
+        if 'x' not in homed_axes:
+            self.gcode.run_script_from_command("G28 X\nM400")
+        if 'y' not in homed_axes:
+            self.gcode.run_script_from_command("G28 Y\nM400")
 
         t_index = self._get_active_extruder(gcmd)
 
