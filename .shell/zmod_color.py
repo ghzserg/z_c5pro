@@ -802,6 +802,7 @@ class zmod_color:
         gcmd.respond_raw(f"// Door: {door_state}")
         gcmd.respond_raw(f"// Top: {top_state}")
 
+
     # Вставить экструдер в голову
     def cmd_T_IN(self, gcmd):
         t_index = gcmd.get_int('T', None)
@@ -818,6 +819,14 @@ class zmod_color:
                 active_t = self._get_active_extruder(gcmd)
                 if active_t != -1:
                     raise gcmd.error(f"Невозможно взять T={t_index}. Каретка занята экструдером T={active_t}! Сначала вызовите T_OUT.")
+
+        toolhead = self.printer.lookup_object('toolhead')
+        homed_axes = toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
+
+        if 'x' not in homed_axes:
+            self.gcode.run_script_from_command("G28 X\nM400")
+        if 'y' not in homed_axes:
+            self.gcode.run_script_from_command("G28 Y\nM400")
 
         try:
             with open(FFCONFIG + 'extruder.json', 'r') as file:
@@ -883,9 +892,14 @@ class zmod_color:
             f"G1 X{park_x_minus_20:.3f} F4800",
             "MOTOR_GRAB2",
             "G1 X250 F1500",
-            f"SET_GCODE_OFFSET X={calc_offset_x:.3f} Y={calc_offset_y:.3f} MOVE=1 MOVE_SPEED=100",
-            f"SET_GCODE_OFFSET Z={calc_offset_z:.3f} MOVE=1 MOVE_SPEED=40",
-            f"RESPOND MSG=\"Z-Offset: {calc_offset_z:.4f} Родной экран\"",
+            f"SET_GCODE_OFFSET X={calc_offset_x:.3f} Y={calc_offset_y:.3f} MOVE=1 MOVE_SPEED=100"
+        ]
+        self.gcode.run_script_from_command("\n".join(script))
+
+        if 'z' in homed_axes:
+            self.gcode.run_script_from_command(f"SET_GCODE_OFFSET Z={calc_offset_z:.3f} MOVE=1 MOVE_SPEED=40")
+
+        script = [
             "MOTOR_STOP",
             "SET_VELOCITY_LIMIT ACCEL=20000",
             "M400"
