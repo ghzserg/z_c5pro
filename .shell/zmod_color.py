@@ -607,6 +607,7 @@ class zmod_color:
         self.gcode.register_command('CHANGE_ZCOLOR', self.cmd_CHANGE_ZCOLOR)
         self.gcode.register_command('_T_IN', self.cmd_T_IN)
         self.gcode.register_command('_T_OUT', self.cmd_T_OUT)
+        self.gcode.register_command('_T_STATUS', self.cmd_T_STATUS)
 
         self.printer.register_event_handler("klippy:ready", self._handle_ready)
 
@@ -761,6 +762,47 @@ class zmod_color:
             raise gcmd.error(f"Ошибка калибровки/датчиков: Не дома {len(not_home_indices)} экстр., а на голове {len(on_head_indices)} экстр.")
 
         return -1
+
+    def cmd_T_STATUS(self, gcmd):
+        home_buttons = ['extruder_pos1', 'extruder_pos2', 'extruder_pos3', 'extruder_pos4']
+        grab_buttons = ['extruder_grab1', 'extruder_grab2', 'extruder_grab3', 'extruder_grab4']
+
+        query_time = self.printer.get_reactor().monotonic()
+
+        gcmd.respond_raw("// ===== СТАТУС ПРИНТЕРА =====")
+
+        for i in range(4):
+            home_obj = self.printer.lookup_object(f"gcode_button {home_buttons[i]}", None)
+            grab_obj = self.printer.lookup_object(f"gcode_button {grab_buttons[i]}", None)
+
+            is_home = (home_obj.get_status(query_time).get('state', '') == "PRESSED") if home_obj else False
+            is_head = (grab_obj.get_status(query_time).get('state', '') == "PRESSED") if grab_obj else False
+
+            if is_home and not is_head:
+                status = "home"
+            elif not is_home and is_head:
+                status = "head"
+            elif not is_home and not is_head:
+                status = "?"
+            else:
+                status = "ERROR (both)"
+
+            gcmd.respond_raw(f"// T{i}: {status}")
+
+        door_obj = self.printer.lookup_object("gcode_button door_sensor", None)
+        if door_obj is not None:
+            door_state = "Close" if door_obj.get_status(query_time).get('state', '') == "PRESSED" else "Open"
+        else:
+            door_state = "UNKNOWN"
+
+        top_obj = self.printer.lookup_object("gcode_button top_sensor", None)
+        if top_obj is not None:
+            top_state = "Close" if top_obj.get_status(query_time).get('state', '') == "PRESSED" else "Open"
+        else:
+            top_state = "UNKNOWN"
+
+        gcmd.respond_raw(f"// Door: {door_state}")
+        gcmd.respond_raw(f"// Top: {top_state}")
 
     # Вставить экструдер в голову
     def cmd_T_IN(self, gcmd):
