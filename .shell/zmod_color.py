@@ -605,6 +605,9 @@ class zmod_color:
         self.gcode.register_command('_CHANGE_FILAMENT', self.cmd_CHANGE_FILAMENT)
         self.gcode.register_command('RUN_ZCOLOR', self.cmd_RUN_ZCOLOR)
         self.gcode.register_command('CHANGE_ZCOLOR', self.cmd_CHANGE_ZCOLOR)
+        self.gcode.register_command('_T_IN', self.cmd_T_IN)
+        self.gcode.register_command('_T_OUT', self.cmd_T_OUT)
+
         self.printer.register_event_handler("klippy:ready", self._handle_ready)
 
         with open(FFCONFIG + 'general.json', 'r') as file:
@@ -716,6 +719,127 @@ class zmod_color:
                     'HEX': hex_color.upper()
                 })
         return slots_info
+
+    # Вставить экструдер в голову
+    def cmd_T_IN(self, gcmd):
+        t_index = gcmd.get_int('T', None)
+        if t_index is None or t_index < 0 or t_index > 3:
+            raise gcmd.error("Error: T parameter is required and must be between 0 and 3")
+
+        try:
+            with open(FFCONFIG + 'extruder.json', 'r') as file:
+                raw = file.read()
+                clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
+                ext_cfg = json.loads(clean)
+        except Exception as e:
+            raise gcmd.error(f"Error reading extruder.json: {str(e)}")
+
+        try:
+            with open(FFCONFIG + 'zoffset.json', 'r') as file:
+                raw = file.read()
+                clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
+                z_cfg = json.loads(clean)
+        except Exception as e:
+            raise gcmd.error(f"Error reading zoffset.json: {str(e)}")
+
+        # Извлекаем базовые калибровочные значения смещений сопел
+        try:
+            t0_x = float(ext_cfg["t0_offset_x"])
+            t0_y = float(ext_cfg["t0_offset_y"])
+            t0_z = float(ext_cfg["t0_offset_z"])
+
+            tn_x = float(ext_cfg[f"t{t_index}_offset_x"])
+            tn_y = float(ext_cfg[f"t{t_index}_offset_y"])
+            tn_z = float(ext_cfg[f"t{t_index}_offset_z"])
+        except KeyError as e:
+            raise gcmd.error(f"Missing offset variable in extruder.json: {str(e)}")
+
+        # Извлекаем ручной z_offset_tX (z_offset_t1 для T0, z_offset_t2 для T1 и т.д.)
+        try:
+            manual_z_offset = float(z_cfg[f"z_offset_t{t_index + 1}"])
+        except KeyError:
+            manual_z_offset = 0.0
+
+        # Вычисляем итоговые смещения G-code (Offsets)
+        calc_offset_x = tn_x - t0_x
+        calc_offset_y = tn_y - t0_y
+        calc_offset_z = (tn_z - t0_z) + manual_z_offset
+
+        # Извлекаем абсолютные координаты парковочного кармана
+        # Для T0 ключи без индекса, для остальных — с индексом N
+        suffix = "" if t_index == 0 else str(t_index)
+        try:
+            park_x = float(ext_cfg[f"x_check_pos{suffix}"])
+            park_y = float(ext_cfg[f"y_check_pos{suffix}"])
+        except KeyError as e:
+            raise gcmd.error(f"Missing park position variable in extruder.json: {str(e)}")
+
+        # Вычисляем координату безопасного отхода (X_park - 20)
+        park_x_minus_20 = park_x - 20.0
+
+        # Формируем и выполняем последовательность G-code команд
+        script = [
+            "SET_VELOCITY_LIMIT ACCEL=8000",
+            "SET_GCODE_OFFSET X=0 Y=0 MOVE=1 MOVE_SPEED=100",
+            "G1 X250 F30000",
+            f"G1 Y{park_y:.3f}",
+            "G1 X280",
+            f"G1 X{park_x:.3f} F5400",
+            f"G1 X{park_x:.3f} F5400",
+            "M400",
+            "MOTOR_GRAB",
+            f"G1 X{park_x_minus_20:.3f} F4800",
+            "MOTOR_GRAB2",
+            "G1 X250 F1500",
+            f"SET_GCODE_OFFSET X={calc_offset_x:.3f} Y={calc_offset_y:.3f} MOVE=1 MOVE_SPEED=100",
+            f"SET_GCODE_OFFSET Z={calc_offset_z:.3f} MOVE=1 MOVE_SPEED=40",
+            f"RESPOND MSG=\"Z-Offset: {calc_offset_z:.4f} Родной экран\"",
+            "MOTOR_STOP",
+            "SET_VELOCITY_LIMIT ACCEL=20000"
+        ]
+
+        self.gcode.run_script_from_command("\n".join(script))
+
+    # Вернуть экструдер на место
+    def cmd_T_OUT(self, gcmd):
+        t_index = gcmd.get_int('T', None)
+        if t_index is None or t_index < 0 or t_index > 3:
+            raise gcmd.error("Error: T parameter is required and must be between 0 and 3")
+
+        try:
+            with open(FFCONFIG + 'extruder.json', 'r') as file:
+                raw = file.read()
+                clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
+                ext_cfg = json.loads(clean)
+        except Exception as e:
+            raise gcmd.error(f"Error reading extruder.json: {str(e)}")
+
+        # Извлекаем абсолютные координаты парковочного кармана
+        # Для T0 ключи без индекса, для остальных — с индексом N
+        suffix = "" if t_index == 0 else str(t_index)
+        try:
+            park_x = float(ext_cfg[f"x_check_pos{suffix}"])
+            park_y = float(ext_cfg[f"y_check_pos{suffix}"])
+        except KeyError as e:
+            raise gcmd.error(f"Missing park position variable in extruder.json: {str(e)}")
+
+        # Вычисляем промежуточную точку входа (X_park - 10)
+        park_x_minus_10 = park_x - 10.0
+
+        script = [
+            "SET_VELOCITY_LIMIT ACCEL=8000",
+            "SET_GCODE_OFFSET X=0 Y=0 MOVE=1 MOVE_SPEED=100",
+            "G1 X250 F30000.000",
+            f"G1 Y{park_y:.3f}",
+            f"G1 X{park_x_minus_10:.3f}",
+            f"G1 X{park_x:.3f} F5400",
+            "MOTOR_RELEASE",
+            "G1 X250 F4800",
+            "MOTOR_STOP",
+            "SET_VELOCITY_LIMIT ACCEL=20000"
+        ]
+
+        self.gcode.run_script_from_command("\n".join(script))
 
     def cmd_SET_EXTRUDER_SLOT(self, gcmd):
         zslot = gcmd.get_int('SLOT', 0)
