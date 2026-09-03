@@ -818,11 +818,11 @@ class zmod_color:
 
         if 'x' in params_str:
             if 'x' not in homed_axes:
-                self.gcode.run_script_from_command("G28 X\nM400")
+                self.gcode.run_script_from_command("G28.1 X\nM400")
 
         if 'y' in params_str:
             if 'y' not in homed_axes:
-                self.gcode.run_script_from_command("G28 Y\nM400")
+                self.gcode.run_script_from_command("G28.1 Y\nM400")
 
         active_t = self._get_active_extruder(gcmd)
         if active_t != -1:
@@ -830,7 +830,7 @@ class zmod_color:
 
         if 'z' in params_str:
             if 'z' not in homed_axes:
-                self.gcode.run_script_from_command("G28 Z\nM400")
+                self.gcode.run_script_from_command("G28.1 Z\nM400")
 
     # Вставить экструдер в голову
     def cmd_T_IN(self, gcmd):
@@ -843,9 +843,9 @@ class zmod_color:
         homed_axes = toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
 
         if 'x' not in homed_axes:
-            self.gcode.run_script_from_command("G28 X\nM400")
+            self.gcode.run_script_from_command("G28.1 X\nM400")
         if 'y' not in homed_axes:
-            self.gcode.run_script_from_command("G28 Y\nM400")
+            self.gcode.run_script_from_command("G28.1 Y\nM400")
 
         active_t = self._get_active_extruder(gcmd)
 
@@ -863,7 +863,7 @@ class zmod_color:
                     raise gcmd.error(f"Невозможно взять T={t_index}. Каретка занята экструдером T={active_t}! Сначала вызовите T_OUT.")
 
         if 'z' not in homed_axes:
-            self.gcode.run_script_from_command("G28 Z\nM400")
+            self.gcode.run_script_from_command("G28.1 Z\nM400")
 
         try:
             with open(FFCONFIG + 'extruder.json', 'r') as file:
@@ -950,9 +950,9 @@ class zmod_color:
         homed_axes = toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
 
         if 'x' not in homed_axes:
-            self.gcode.run_script_from_command("G28 X\nM400")
+            self.gcode.run_script_from_command("G28.1 X\nM400")
         if 'y' not in homed_axes:
-            self.gcode.run_script_from_command("G28 Y\nM400")
+            self.gcode.run_script_from_command("G28.1 Y\nM400")
 
         t_index = self._get_active_extruder(gcmd)
 
