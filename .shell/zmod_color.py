@@ -759,7 +759,7 @@ class zmod_color:
             else:
                 raise gcmd.error(f"Рассинхрон датчиков: Экструдер {not_home_indices[0]} не дома, но датчик головы видит Экструдер {on_head_indices[0]}!")
         else:
-            raise gcmd.error(f"Ошибка калибровки/датчиков: Не дома {len(not_home_indices)} экстр., а на голове {len(on_head_indices)} экстр.")
+            raise gcmd.error(f"Ошибка датчиков: Не дома {not_home_indices}. На голове: {on_head_indices}.")
 
         return -1
 
@@ -768,8 +768,6 @@ class zmod_color:
         grab_buttons = ['extruder_grab1', 'extruder_grab2', 'extruder_grab3', 'extruder_grab4']
 
         query_time = self.printer.get_reactor().monotonic()
-
-        gcmd.respond_raw("// ===== СТАТУС ПРИНТЕРА =====")
 
         for i in range(4):
             home_obj = self.printer.lookup_object(f"gcode_button {home_buttons[i]}", None)
@@ -789,13 +787,13 @@ class zmod_color:
 
             gcmd.respond_raw(f"// T{i}: {status}")
 
-        door_obj = self.printer.lookup_object("gcode_button door_sensor", None)
+        door_obj = self.printer.lookup_object("gcode_button frontDoor", None)
         if door_obj is not None:
             door_state = "Close" if door_obj.get_status(query_time).get('state', '') == "PRESSED" else "Open"
         else:
             door_state = "UNKNOWN"
 
-        top_obj = self.printer.lookup_object("gcode_button top_sensor", None)
+        top_obj = self.printer.lookup_object("gcode_button topDoor", None)
         if top_obj is not None:
             top_state = "Close" if top_obj.get_status(query_time).get('state', '') == "PRESSED" else "Open"
         else:
@@ -889,7 +887,8 @@ class zmod_color:
             f"SET_GCODE_OFFSET Z={calc_offset_z:.3f} MOVE=1 MOVE_SPEED=40",
             f"RESPOND MSG=\"Z-Offset: {calc_offset_z:.4f} Родной экран\"",
             "MOTOR_STOP",
-            "SET_VELOCITY_LIMIT ACCEL=20000"
+            "SET_VELOCITY_LIMIT ACCEL=20000",
+            "M400"
         ]
 
         self.gcode.run_script_from_command("\n".join(script))
@@ -939,7 +938,8 @@ class zmod_color:
             "MOTOR_RELEASE",
             "G1 X250 F4800",
             "MOTOR_STOP",
-            "SET_VELOCITY_LIMIT ACCEL=20000"
+            "SET_VELOCITY_LIMIT ACCEL=20000",
+            "M400"
         ]
 
         self.gcode.run_script_from_command("\n".join(script))
