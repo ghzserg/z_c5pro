@@ -720,11 +720,66 @@ class zmod_color:
                 })
         return slots_info
 
+    def _get_active_extruder(self, gcmd):
+        home_buttons = ['extruder_pos1', 'extruder_pos2', 'extruder_pos3', 'extruder_pos4']
+        grab_buttons = ['extruder_grab1', 'extruder_grab2', 'extruder_grab3', 'extruder_grab4']
+
+        not_home_indices = []
+        on_head_indices = []
+
+        cmd_time = self.printer.get_reactor().monotonic()
+
+        for i in range(4):
+            is_home = False
+            home_obj = self.printer.lookup_object(f"gcode_button {home_buttons[i]}", None)
+            if home_obj is not None:
+                is_home = home_obj.get_status(cmd_time).get('state', False)
+            if not is_home:
+                not_home_indices.append(i)
+
+            is_on_head = True
+            grab_obj = self.printer.lookup_object(f"gcode_button {grab_buttons[i]}", None)
+            if grab_obj is not None:
+                is_on_head = grab_obj.get_status(cmd_time).get('state', False)
+            if is_on_head:
+                on_head_indices.append(i)
+
+        if len(not_home_indices) > 1:
+            raise gcmd.error(f"Больше 1 экструдера не дома! {not_home_indices}")
+        if len(on_head_indices) > 1:
+            raise gcmd.error(f"Больше 1 экструдера на голове! {on_head_indices}")
+
+        # Все дома, голова пуста
+        if len(not_home_indices) == 0 and len(on_head_indices) == 0:
+            return -1
+
+        # Если один не дома, и именно он на голове — возвращаем его номер (0-3)
+        if len(not_home_indices) == 1 and len(on_head_indices) == 1:
+            if not_home_indices[0] == on_head_indices[0]:
+                return not_home_indices[0]
+            else:
+                raise gcmd.error(f"Рассинхрон датчиков: Экструдер {not_home_indices[0]} не дома, но датчик головы видит Экструдер {on_head_indices[0]}!")
+        else:
+            raise gcmd.error(f"Ошибка калибровки/датчиков: Не дома {len(not_home_indices)} экстр., а на голове {len(on_head_indices)} экстр.")
+
+        return -1
+
     # Вставить экструдер в голову
     def cmd_T_IN(self, gcmd):
         t_index = gcmd.get_int('T', None)
         if t_index is None or t_index < 0 or t_index > 3:
             raise gcmd.error("Error: T parameter is required and must be between 0 and 3")
+        silent = gcmd.get_int('SILENT', 0)
+
+        active_t = self._get_active_extruder(gcmd)
+        if active_t != -1:
+            if silent == 0:
+                raise gcmd.error(f"Невозможно взять T={t_index}. Каретка занята экструдером T={active_t}! Сначала вызовите T_OUT.")
+            else:
+                self.cmd_T_OUT(gcmd)
+                active_t = self._get_active_extruder(gcmd)
+                if active_t != -1:
+                    raise gcmd.error(f"Невозможно взять T={t_index}. Каретка занята экструдером T={active_t}! Сначала вызовите T_OUT.")
 
         try:
             with open(FFCONFIG + 'extruder.json', 'r') as file:
@@ -785,7 +840,6 @@ class zmod_color:
             f"G1 Y{park_y:.3f}",
             "G1 X280",
             f"G1 X{park_x:.3f} F5400",
-            f"G1 X{park_x:.3f} F5400",
             "M400",
             "MOTOR_GRAB",
             f"G1 X{park_x_minus_20:.3f} F4800",
@@ -800,11 +854,21 @@ class zmod_color:
 
         self.gcode.run_script_from_command("\n".join(script))
 
+        active_t = self._get_active_extruder(gcmd)
+        if active_t != t_index:
+            raise gcmd.error(f"Неверный экструдер в голове. Должен быть T{t_index} != T{active_t}")
+
     # Вернуть экструдер на место
     def cmd_T_OUT(self, gcmd):
-        t_index = gcmd.get_int('T', None)
-        if t_index is None or t_index < 0 or t_index > 3:
-            raise gcmd.error("Error: T parameter is required and must be between 0 and 3")
+        silent = gcmd.get_int('SILENT', 0)
+
+        t_index = self._get_active_extruder(gcmd)
+
+        if t_index == -1:
+            if silent == 0:
+                gcmd.respond_info("Каретка уже пуста, выгрузка не требуется.")
+            return
+
 
         try:
             with open(FFCONFIG + 'extruder.json', 'r') as file:
@@ -840,6 +904,10 @@ class zmod_color:
         ]
 
         self.gcode.run_script_from_command("\n".join(script))
+
+        active_t = self._get_active_extruder(gcmd)
+        if active_t != -1:
+            raise gcmd.error(f"Экструдер T{active_t} не снят с головы. ")
 
     def cmd_SET_EXTRUDER_SLOT(self, gcmd):
         zslot = gcmd.get_int('SLOT', 0)
