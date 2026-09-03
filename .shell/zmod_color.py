@@ -810,6 +810,14 @@ class zmod_color:
             raise gcmd.error("Error: T parameter is required and must be between 0 and 3")
         silent = gcmd.get_int('SILENT', 0)
 
+        toolhead = self.printer.lookup_object('toolhead')
+        homed_axes = toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
+
+        if 'x' not in homed_axes:
+            self.gcode.run_script_from_command("G28 X\nM400")
+        if 'y' not in homed_axes:
+            self.gcode.run_script_from_command("G28 Y\nM400")
+
         active_t = self._get_active_extruder(gcmd)
         if active_t != -1:
             if silent == 0:
@@ -820,13 +828,9 @@ class zmod_color:
                 if active_t != -1:
                     raise gcmd.error(f"Невозможно взять T={t_index}. Каретка занята экструдером T={active_t}! Сначала вызовите T_OUT.")
 
-        toolhead = self.printer.lookup_object('toolhead')
-        homed_axes = toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
-
-        if 'x' not in homed_axes:
-            self.gcode.run_script_from_command("G28 X\nM400")
-        if 'y' not in homed_axes:
-            self.gcode.run_script_from_command("G28 Y\nM400")
+        if active_t == t_index:
+            gcmd.respond_info(f"T{active_t} in Head. Skeep...")
+            return
 
         try:
             with open(FFCONFIG + 'extruder.json', 'r') as file:
