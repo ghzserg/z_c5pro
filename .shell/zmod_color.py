@@ -781,7 +781,7 @@ class zmod_color:
             if is_home and not is_head:
                 status = "home"
             elif not is_home and is_head:
-                status = "head"
+                status = "HEAD"
             elif not is_home and not is_head:
                 status = "?"
             else:
