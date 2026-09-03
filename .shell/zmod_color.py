@@ -740,9 +740,10 @@ class zmod_color:
             is_on_head = True
             grab_obj = self.printer.lookup_object(f"gcode_button {grab_buttons[i]}", None)
             if grab_obj is not None:
-                is_on_head = grab_obj.get_status(cmd_time).get('state', False)
+                is_on_head = not grab_obj.get_status(cmd_time).get('state', False)
             if is_on_head:
                 on_head_indices.append(i)
+            gcmd.respond_info(f"DEBUG: Not home: {not_home_indices} | On head: {on_head_indices}")
 
         if len(not_home_indices) > 1:
             raise gcmd.error(f"Больше 1 экструдера не дома! {not_home_indices}")
@@ -868,7 +869,6 @@ class zmod_color:
             if silent == 0:
                 gcmd.respond_info("Каретка уже пуста, выгрузка не требуется.")
             return
-
 
         try:
             with open(FFCONFIG + 'extruder.json', 'r') as file:
