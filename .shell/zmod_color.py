@@ -807,7 +807,8 @@ class zmod_color:
     def cmd_T_G28(self, gcmd):
         params = gcmd.get_command_parameters()
 
-        params_str = "".join(params.keys()).lower()
+        raw_string = gcmd.get('RAW', '').lower()
+        params_str = "".join(re.findall(r'[xyz]', raw_string))
 
         if not params_str:
             params_str = "xyz"
