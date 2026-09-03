@@ -733,13 +733,13 @@ class zmod_color:
             is_home = False
             home_obj = self.printer.lookup_object(f"gcode_button {home_buttons[i]}", None)
             if home_obj is not None:
-                if home_obj.get_status(query_time).get('state', '') == "RELEASED":
+                if home_obj.get_status(cmd_time).get('state', '') == "RELEASED":
                     not_home_indices.append(i)
 
             is_on_head = True
             grab_obj = self.printer.lookup_object(f"gcode_button {grab_buttons[i]}", None)
             if grab_obj is not None:
-                if grab_obj.get_status(query_time).get('state', '') == "PRESSED":
+                if grab_obj.get_status(cmd_time).get('state', '') == "PRESSED":
                     on_head_indices.append(i)
 
         if len(not_home_indices) > 1:
