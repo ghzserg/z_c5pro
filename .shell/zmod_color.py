@@ -725,8 +725,7 @@ class zmod_color:
         home_buttons = ['extruder_pos1', 'extruder_pos2', 'extruder_pos3', 'extruder_pos4']
         grab_buttons = ['extruder_grab1', 'extruder_grab2', 'extruder_grab3', 'extruder_grab4']
 
-        cmd_time = self.printer.lookup_object('gcode').get_command_time()
-        reactor_time = self.printer.get_reactor().monotonic()
+        cmd_time = reactor_time = self.printer.get_reactor().monotonic()
 
         gcmd.respond_raw("// ===== ПРОВЕРКА ДАТЧИКОВ ЭКСТРУДЕРОВ =====")
 
