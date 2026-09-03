@@ -607,6 +607,7 @@ class zmod_color:
         self.gcode.register_command('CHANGE_ZCOLOR', self.cmd_CHANGE_ZCOLOR)
         self.gcode.register_command('_T_IN', self.cmd_T_IN)
         self.gcode.register_command('_T_OUT', self.cmd_T_OUT)
+        self.gcode.register_command('_T_STATUS', self.cmd_T_STATUS)
 
         self.printer.register_event_handler("klippy:ready", self._handle_ready)
 
@@ -719,6 +720,41 @@ class zmod_color:
                     'HEX': hex_color.upper()
                 })
         return slots_info
+
+    def cmd_T_STATUS(self, gcmd):
+        home_buttons = ['extruder_pos1', 'extruder_pos2', 'extruder_pos3', 'extruder_pos4']
+        grab_buttons = ['extruder_grab1', 'extruder_grab2', 'extruder_grab3', 'extruder_grab4']
+
+        cmd_time = self.printer.lookup_object('gcode').get_command_time()
+        reactor_time = self.printer.get_reactor().monotonic()
+
+        gcmd.respond_raw("// ===== ПРОВЕРКА ДАТЧИКОВ ЭКСТРУДЕРОВ =====")
+
+        gcmd.respond_raw("// --- 1. Датчики ДОМА (extruder_pos) ---")
+        for i in range(4):
+            obj = self.printer.lookup_object(f"gcode_button {home_buttons[i]}", None)
+            if obj is None:
+                gcmd.respond_raw(f"// {home_buttons[i]}: НЕ НАЙДЕН в системе Klipper")
+                continue
+
+            st_gcode = obj.get_status(cmd_time).get('state', None)
+            st_reactor = obj.get_status(reactor_time).get('state', None)
+            st_attr = getattr(obj, 'state', None)
+
+            gcmd.respond_raw(f"// {home_buttons[i]} -> get_status(gcode): {st_gcode} | get_status(reactor): {st_reactor} | attr(.state): {st_attr}")
+
+        gcmd.respond_raw("// --- 2. Датчики НА ГОЛОВЕ (extruder_grab) ---")
+        for i in range(4):
+            obj = self.printer.lookup_object(f"gcode_button {grab_buttons[i]}", None)
+            if obj is None:
+                gcmd.respond_raw(f"// {grab_buttons[i]}: НЕ НАЙДЕН в системе Klipper")
+                continue
+
+            st_gcode = obj.get_status(cmd_time).get('state', None)
+            st_reactor = obj.get_status(reactor_time).get('state', None)
+            st_attr = getattr(obj, 'state', None)
+
+            gcmd.respond_raw(f"// {grab_buttons[i]} -> get_status(gcode): {st_gcode} | get_status(reactor): {st_reactor} | attr(.state): {st_attr}")
 
     def _get_active_extruder(self, gcmd):
         home_buttons = ['extruder_pos1', 'extruder_pos2', 'extruder_pos3', 'extruder_pos4']
