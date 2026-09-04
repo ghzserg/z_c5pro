@@ -589,6 +589,9 @@ class zmod_color:
         self.printer = config.get_printer()
         self.color_limit = 4
 
+        self.saved_extruder = -1
+        self.saved_temperature = 0.0
+
         self.display = config.getboolean('display', True)
         self.lang = 'en'
         self.valid_types = [
@@ -610,6 +613,7 @@ class zmod_color:
         self.gcode.register_command('_T_OUT', self.cmd_T_OUT)           # Освободить голову
         self.gcode.register_command('_T_STATUS', self.cmd_T_STATUS)     # Получить статус
         self.gcode.register_command('_T_G28', self.cmd_T_G28)           # Защищенный G28
+        self.gcode.register_command('_T_RESTORE', self.cmd_T_RESTORE)   # Восстновить сохраненный экструдер
 
         self.printer.register_event_handler("klippy:ready", self._handle_ready)
 
@@ -832,11 +836,30 @@ class zmod_color:
             if 'z' not in homed_axes:
                 self.gcode.run_script_from_command("G28.1 Z\nM400")
 
+    def cmd_T_RESTORE(self, gcmd):
+        if self.saved_extruder == -1:
+            return
+
+        script = []
+        script.append(f"RESPOND MSG=\"Возврат экструдера T{self.saved_extruder}. Temp {self.saved_temperature:.1f}\"")
+
+        if self.saved_temperature > 0.0:
+            extruder_name = "extruder" if self.saved_extruder == 0 else f"extruder{self.saved_extruder}"
+            script.append(f"_WAIT_TEMP EXTRUDER={extruder_name} EXTRUDER_TEMP={self.saved_temperature:.1f} BED_TEMP=0 FROM=_T_RESTORE")
+
+        # Восстановление физических координат
+        script.append("RESTORE_GCODE_STATE NAME=_T_TOOL_STATE MOVE=1 MOVE_SPEED=100")
+
+        self.saved_extruder = -1
+        self.saved_temperature = 0.0
+
+        self.gcode.run_script_from_command("\n".join(script))
+
     # Вставить экструдер в голову
     def cmd_T_IN(self, gcmd):
         t_index = gcmd.get_int('T', None)
         if t_index is None or t_index < 0 or t_index > 3:
-            raise gcmd.error("Error: T parameter is required and must be between 0 and 3")
+            raise gcmd.error("Error: T parameter is required and must be between -1 and 3")
         silent = gcmd.get_int('SILENT', 1)
 
         toolhead = self.printer.lookup_object('toolhead')
@@ -855,12 +878,12 @@ class zmod_color:
 
         if active_t != -1:
             if silent == 0:
-                raise gcmd.error(f"Невозможно взять T={t_index}. Каретка занята экструдером T={active_t}! Сначала вызовите T_OUT.")
+                raise gcmd.error(f"Невозможно взять T{t_index}. Каретка занята экструдером T{active_t}! Сначала вызовите _T_OUT.")
             else:
                 self.cmd_T_OUT(gcmd)
                 active_t = self._get_active_extruder(gcmd)
                 if active_t != -1:
-                    raise gcmd.error(f"Невозможно взять T={t_index}. Каретка занята экструдером T={active_t}! Сначала вызовите T_OUT.")
+                    raise gcmd.error(f"Невозможно взять T{t_index}. Каретка занята экструдером T{active_t}! Сначала вызовите _T_OUT.")
 
         if 'z' not in homed_axes:
             self.gcode.run_script_from_command("G28.1 Z\nM400")
@@ -945,6 +968,7 @@ class zmod_color:
     # Вернуть экструдер на место
     def cmd_T_OUT(self, gcmd):
         silent = gcmd.get_int('SILENT', 1)
+        save = gcmd.get_int('SAVE', 0)
 
         toolhead = self.printer.lookup_object('toolhead')
         homed_axes = toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
@@ -960,6 +984,25 @@ class zmod_color:
             if silent == 0:
                 gcmd.respond_info("Каретка уже пуста, выгрузка не требуется.")
             return
+
+        # Логика сохранения состояния
+        if save == 1:
+            self.saved_extruder = t_index
+
+            script.append("SAVE_GCODE_STATE NAME=_T_TOOL_STATE")
+
+            extruder_name = "extruder" if t_index == 0 else f"extruder{t_index}"
+
+            extruder_obj = self.printer.lookup_object(extruder_name, None)
+            if extruder_obj is not None:
+                current_target = extruder_obj.get_status(self.printer.get_reactor().monotonic()).get('target', 0.0)
+                self.saved_temperature = float(current_target)
+
+                # Если целевая температура этого конкретного хотенда выше 140, снижаем её
+                if self.saved_temperature > 140.0:
+                    script.append(f"_WAIT_TEMP EXTRUDER={extruder_name} EXTRUDER_TEMP=140 BED_TEMP=0 FROM=_T_OUT")
+            else:
+                self.saved_temperature = 0.0
 
         try:
             with open(FFCONFIG + 'extruder.json', 'r') as file:
