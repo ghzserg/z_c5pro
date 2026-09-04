@@ -817,7 +817,7 @@ class zmod_color:
         if not params_str:
             params_str = "xyz"
 
-        self.gcode.run_script_from_command(f"RESPOND MSG=\"G28 {params_str}")
+        gcmd.respond_raw(f"// G28 {params_str}")
 
         active_t = self._get_active_extruder(gcmd)
         if active_t == -1 and 'x' in params_str and 'y' in params_str and 'z' in params_str:
