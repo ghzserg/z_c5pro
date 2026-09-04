@@ -756,18 +756,18 @@ class zmod_color:
 
         # Все дома, голова пуста
         if len(not_home_indices) == 0 and len(on_head_indices) == 0:
+            gcmd.respond_raw(f"// Head: -1")
             return -1
 
         # Если один не дома, и именно он на голове — возвращаем его номер (0-3)
         if len(not_home_indices) == 1 and len(on_head_indices) == 1:
             if not_home_indices[0] == on_head_indices[0]:
+                gcmd.respond_raw(f"// Head: {not_home_indices[0]}")
                 return not_home_indices[0]
             else:
                 raise gcmd.error(f"Рассинхрон датчиков: Экструдер {not_home_indices[0]} не дома, но датчик головы видит Экструдер {on_head_indices[0]}!")
-        else:
-            raise gcmd.error(f"Ошибка датчиков: Не дома {not_home_indices}. На голове: {on_head_indices}.")
 
-        return -1
+        raise gcmd.error(f"Ошибка датчиков: Не дома {not_home_indices}. На голове: {on_head_indices}.")
 
     def cmd_T_STATUS(self, gcmd):
         home_buttons = ['extruder_pos1', 'extruder_pos2', 'extruder_pos3', 'extruder_pos4']
@@ -817,10 +817,7 @@ class zmod_color:
         if not params_str:
             params_str = "xyz"
 
-        self.gcode.run_script_from_command(f"{params_str}")
-
-        toolhead = self.printer.lookup_object('toolhead')
-        homed_axes = toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
+        self.gcode.run_script_from_command(f"RESPOND MSG=\"G28 {params_str}")
 
         active_t = self._get_active_extruder(gcmd)
         if active_t == -1 and 'x' in params_str and 'y' in params_str and 'z' in params_str:
@@ -838,6 +835,7 @@ class zmod_color:
             self.cmd_T_OUT(gcmd)
 
         if 'z' in params_str:
+            toolhead = self.printer.lookup_object('toolhead')
             homed_axes = toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
             self.gcode.run_script_from_command("G28.1 Z\nM400")
 
