@@ -822,6 +822,7 @@ class zmod_color:
         active_t = self._get_active_extruder(gcmd)
         if active_t == -1 and 'x' in params_str and 'y' in params_str and 'z' in params_str:
             self.gcode.run_script_from_command("G28.1\nM400")
+            return
         else:
             if 'x' in params_str and 'y' in params_str:
                 self.gcode.run_script_from_command("G28.1 X Y\nM400")
