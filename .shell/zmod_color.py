@@ -989,6 +989,7 @@ class zmod_color:
 
             self.gcode.run_script_from_command("SAVE_GCODE_STATE NAME=_T_TOOL_STATE")
 
+            extruder_name = "extruder" if t_index == 0 else f"extruder{t_index}"
             extruder_obj = self.printer.lookup_object(extruder_name, None)
             if extruder_obj is not None:
                 current_target = extruder_obj.get_status(self.printer.get_reactor().monotonic()).get('target', 0.0)
