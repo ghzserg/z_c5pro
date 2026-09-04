@@ -845,7 +845,7 @@ class zmod_color:
 
         if self.saved_temperature > 0.0:
             extruder_name = "extruder" if self.saved_extruder == 0 else f"extruder{self.saved_extruder}"
-            script.append(f"_WAIT_TEMP EXTRUDER={extruder_name} EXTRUDER_TEMP={self.saved_temperature:.1f} BED_TEMP=0 FROM=_T_RESTORE")
+            script.append(f"_WAIT_TEMP EXTRUDER=\"{extruder_name}\" EXTRUDER_TEMP={self.saved_temperature:.1f} BED_TEMP=0 FROM=_T_RESTORE")
 
         # Восстановление физических координат
         script.append("RESTORE_GCODE_STATE NAME=_T_TOOL_STATE MOVE=1 MOVE_SPEED=100")
@@ -1000,7 +1000,7 @@ class zmod_color:
 
                 # Если целевая температура этого конкретного хотенда выше 140, снижаем её
                 if self.saved_temperature > 140.0:
-                    script.append(f"_WAIT_TEMP EXTRUDER={extruder_name} EXTRUDER_TEMP=140 BED_TEMP=0 FROM=_T_OUT")
+                    script.append(f"_WAIT_TEMP EXTRUDER=\"{extruder_name}\" EXTRUDER_TEMP=140 BED_TEMP=0 FROM=_T_OUT")
             else:
                 self.saved_temperature = 0.0
 
