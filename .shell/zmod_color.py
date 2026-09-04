@@ -820,21 +820,24 @@ class zmod_color:
         toolhead = self.printer.lookup_object('toolhead')
         homed_axes = toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
 
-        if 'x' in params_str:
-            if 'x' not in homed_axes:
-                self.gcode.run_script_from_command("G28.1 X\nM400")
-
-        if 'y' in params_str:
-            if 'y' not in homed_axes:
-                self.gcode.run_script_from_command("G28.1 Y\nM400")
-
         active_t = self._get_active_extruder(gcmd)
+        if active_t == -1 and 'xyz' in params_str:
+            self.gcode.run_script_from_command("G28.1\nM400")
+        else:
+            if 'xy' in params_str:
+                self.gcode.run_script_from_command("G28.1 XY\nM400")
+            else:
+                if 'x' in params_str:
+                    self.gcode.run_script_from_command("G28.1 X\nM400")
+                if 'y' in params_str:
+                    self.gcode.run_script_from_command("G28.1 Y\nM400")
+
         if active_t != -1:
             self.cmd_T_OUT(gcmd)
 
         if 'z' in params_str:
-            if 'z' not in homed_axes:
-                self.gcode.run_script_from_command("G28.1 Z\nM400")
+            homed_axes = toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
+            self.gcode.run_script_from_command("G28.1 Z\nM400")
 
     def cmd_T_RESTORE(self, gcmd):
         if self.saved_extruder == -1:
@@ -864,10 +867,8 @@ class zmod_color:
         toolhead = self.printer.lookup_object('toolhead')
         homed_axes = toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
 
-        if 'x' not in homed_axes:
-            self.gcode.run_script_from_command("G28.1 X\nM400")
-        if 'y' not in homed_axes:
-            self.gcode.run_script_from_command("G28.1 Y\nM400")
+        if 'x' not in homed_axes or 'y' not in homed_axes:
+            self.gcode.run_script_from_command("G28.1 XY\nM400")
 
         active_t = self._get_active_extruder(gcmd)
 
@@ -972,10 +973,8 @@ class zmod_color:
         toolhead = self.printer.lookup_object('toolhead')
         homed_axes = toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
 
-        if 'x' not in homed_axes:
-            self.gcode.run_script_from_command("G28.1 X\nM400")
-        if 'y' not in homed_axes:
-            self.gcode.run_script_from_command("G28.1 Y\nM400")
+        if 'x' not in homed_axes or 'y' not in homed_axes:
+            self.gcode.run_script_from_command("G28.1 XY\nM400")
 
         t_index = self._get_active_extruder(gcmd)
 
