@@ -642,6 +642,12 @@ class zmod_color:
             self.COLOR_MAPPING = {}
 
         self.virtual_sd = self.printer.lookup_object('virtual_sdcard')
+        self.gcode_move = self.printer.lookup_object('gcode_move', None)
+        self.door_obj = self.printer.lookup_object("gcode_button frontDoor", None)
+        self.top_obj = self.printer.lookup_object("gcode_button topDoor", None)
+        self.toolhead = self.printer.lookup_object('toolhead')
+        self.save_variables = self.printer.lookup_object('save_variables', None)
+        self.save_variables = {} if self.save_variables == None else self.save_variables.allVariables
 
     def get_display(self):
         return self.display
@@ -778,7 +784,6 @@ class zmod_color:
         for i in range(4):
             home_obj = self.printer.lookup_object(f"gcode_button {home_buttons[i]}", None)
             grab_obj = self.printer.lookup_object(f"gcode_button {grab_buttons[i]}", None)
-
             is_home = (home_obj.get_status(query_time).get('state', '') == "PRESSED") if home_obj else False
             is_head = (grab_obj.get_status(query_time).get('state', '') == "PRESSED") if grab_obj else False
 
@@ -793,15 +798,13 @@ class zmod_color:
 
             gcmd.respond_raw(f"// T{i}: {status}")
 
-        door_obj = self.printer.lookup_object("gcode_button frontDoor", None)
-        if door_obj is not None:
-            door_state = "Close" if door_obj.get_status(query_time).get('state', '') == "PRESSED" else "Open"
+        if self.door_obj is not None:
+            door_state = "Close" if self.door_obj.get_status(query_time).get('state', '') == "PRESSED" else "Open"
         else:
             door_state = "UNKNOWN"
 
-        top_obj = self.printer.lookup_object("gcode_button topDoor", None)
-        if top_obj is not None:
-            top_state = "Close" if top_obj.get_status(query_time).get('state', '') == "PRESSED" else "Open"
+        if self.top_obj is not None:
+            top_state = "Close" if self.top_obj.get_status(query_time).get('state', '') == "PRESSED" else "Open"
         else:
             top_state = "UNKNOWN"
 
@@ -836,8 +839,7 @@ class zmod_color:
             self.cmd_T_OUT(gcmd)
 
         if 'z' in params_str:
-            toolhead = self.printer.lookup_object('toolhead')
-            homed_axes = toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
+            homed_axes = self.toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
             self.gcode.run_script_from_command("G28.1 Z\nM400")
 
     def cmd_T_RESTORE(self, gcmd):
@@ -850,11 +852,7 @@ class zmod_color:
         if self.saved_temperature > 0.0:
             self.gcode.run_script_from_command(f"_WAIT_TEMP T={self.saved_extruder} EXTRUDER_TEMP={self.saved_temperature:.1f} BED_TEMP=0 FROM=_T_RESTORE")
 
-        gcode_move = self.printer.lookup_object('gcode_move', None)
-        if gcode_move is None:
-            raise gcmd.error("Критическая ошибка Klipper: Объект 'gcode_move' не найден!")
-
-        saved_states = getattr(gcode_move, 'saved_states', {})
+        saved_states = getattr(self.gcode_move, 'saved_states', {})
         target_state = saved_states.get('_T_TOOL_STATE', None)
 
         if target_state is None:
@@ -865,7 +863,12 @@ class zmod_color:
 
         saved_gcode_z = saved_last_position[2] - saved_base_position[2]
 
-        self.gcode.run_script_from_command("G90\nG1 Z{saved_gcode_z:.3f} F1200")
+        move_status = self.gcode_move.get_status(self.printer.get_reactor().monotonic())
+        is_absolute = move_status.get('absolute_coordinates', True)
+        if not is_absolute:
+            self.gcode.run_script_from_command("G90")
+
+        self.gcode.run_script_from_command(f"G1 Z{saved_gcode_z:.3f} F1200")
 
         # Восстановление физических координат
         self.gcode.run_script_from_command("RESTORE_GCODE_STATE NAME=_T_TOOL_STATE MOVE=1 MOVE_SPEED=100")
@@ -880,8 +883,7 @@ class zmod_color:
             raise gcmd.error("Error: T parameter is required and must be between -1 and 3")
         silent = gcmd.get_int('SILENT', 1)
 
-        toolhead = self.printer.lookup_object('toolhead')
-        homed_axes = toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
+        homed_axes = self.toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
 
         if 'x' not in homed_axes or 'y' not in homed_axes:
             self.gcode.run_script_from_command("G28.1 X Y\nM400")
@@ -955,6 +957,15 @@ class zmod_color:
         # Вычисляем координату безопасного отхода (X_park - 20)
         park_x_minus_20 = park_x - 20.0
 
+        move_status = self.gcode_move.get_status(self.printer.get_reactor().monotonic())
+        is_absolute = move_status.get('absolute_coordinates', True)
+        if not is_absolute:
+            self.gcode.run_script_from_command("G90")
+
+        current_z = move_status.get('gcode_position', [0, 0, 0])[2]
+        if current_z < 10.0:
+            self.gcode.run_script_from_command("G1 Z10.000 F1200\nM400")
+
         # Формируем и выполняем последовательность G-code команд
         script = [
             "SET_VELOCITY_LIMIT ACCEL=8000",
@@ -977,6 +988,9 @@ class zmod_color:
 
         self.gcode.run_script_from_command("\n".join(script))
 
+        if not is_absolute:
+            self.gcode.run_script_from_command("G91")
+
         active_t = self._get_active_extruder(gcmd)
         if active_t != t_index:
             raise gcmd.error(f"Неверный экструдер в голове. Должен быть T{t_index} != T{active_t}")
@@ -987,8 +1001,7 @@ class zmod_color:
         save_t = gcmd.get_int('SAVE_T', 0)
         save_t_temp = gcmd.get_int('SAVE_T_TEMP', 0)
 
-        toolhead = self.printer.lookup_object('toolhead')
-        homed_axes = toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
+        homed_axes = self.toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
 
         if 'x' not in homed_axes or 'y' not in homed_axes:
             self.gcode.run_script_from_command("G28.1 X Y\nM400")
@@ -1034,6 +1047,16 @@ class zmod_color:
         except KeyError as e:
             raise gcmd.error(f"Missing park position variable in extruder.json: {str(e)}")
 
+        move_status = self.gcode_move.get_status(self.printer.get_reactor().monotonic())
+        is_absolute = move_status.get('absolute_coordinates', True)
+        if not is_absolute:
+            self.gcode.run_script_from_command("G90")
+
+        if 'z' in homed_axes:
+            current_z = move_status.get('gcode_position', [0, 0, 0])[2]
+            if current_z < 10.0:
+                self.gcode.run_script_from_command("G1 Z10.000 F1200\nM400")
+
         # Вычисляем промежуточную точку входа (X_park - 10)
         park_x_minus_10 = park_x - 10.0
 
@@ -1050,6 +1073,9 @@ class zmod_color:
             "SET_VELOCITY_LIMIT ACCEL=20000",
             "M400"
         ]
+
+        if not is_absolute:
+            self.gcode.run_script_from_command("G91")
 
         self.gcode.run_script_from_command("\n".join(script))
         if 'z' in homed_axes:
@@ -1121,18 +1147,8 @@ class zmod_color:
         else:
             gcmd.respond_raw(self._t('no_response', json.dumps(response_data)))
 
-    def get_allowed_tool_count(self, gcmd):
-        if self.display:
-            return 4
-
-        save_variables = self.printer.lookup_object('save_variables', None)
-        save_variables = {} if save_variables == None else save_variables.allVariables
-
-        allowed_tool_count = save_variables.get('allowed_tool_count', 0)
-        if allowed_tool_count <= 0:
-            allowed_tool_count = self.color_limit
-
-        return allowed_tool_count
+    def get_al1lowed_tool_count(self, gcmd):
+        return 4
 
     def rgb_to_lab(self, r, g, b):
         """sRGB (0-255) → CIE LAB (D65)"""
@@ -1160,11 +1176,7 @@ class zmod_color:
 
     def get_used_colors(self, gcmd):
         # Returns list of tuples. (tool ID, color, material)
-
-        save_variables = self.printer.lookup_object('save_variables', None)
-        save_variables = {} if save_variables == None else save_variables.allVariables
-
-        scan_files_setting = save_variables.get('scan_file_colors', 0)
+        scan_files_setting = self.save_variables.get('scan_file_colors', 0)
 
         if scan_files_setting == 0:
             tool_count = self.get_allowed_tool_count(gcmd)
@@ -1348,10 +1360,7 @@ class zmod_color:
 
 
     def cmd_SET_ZCOLOR(self, gcmd):
-        save_variables = self.printer.lookup_object('save_variables', None)
-        save_variables = {} if save_variables == None else save_variables.allVariables
-
-        one_based_indexes = (save_variables.get('color_menu_1_based', 0) != 0)
+        one_based_indexes = (self.save_variables.get('color_menu_1_based', 0) != 0)
 
         silent = gcmd.get_int('SILENT', 0)
 
@@ -1371,7 +1380,7 @@ class zmod_color:
             self.file_colors = self.get_used_colors(gcmd)
             if self.display and any(file_color[0] > 3 for file_color in self.file_colors):
                 raise gcmd.error(self._t('error_native_screen_tool_count', len(self.file_colors)))
-            auto_assign_setting = save_variables.get('auto_assign_colors', 0)
+            auto_assign_setting = self.save_variables.get('auto_assign_colors', 0)
         else:
             auto_assign_setting = 0
 
@@ -1651,9 +1660,7 @@ class zmod_color:
 
             full_color_change = True
             #if self.get_extruder_sensor() and spool_number == current_spool_number:
-            #    save_variables = self.printer.lookup_object('save_variables', None)
-            #    save_variables = {} if save_variables == None else save_variables.allVariables
-            #    if save_variables.get('always_full_color_change', 0) == 0:
+            #    if self.save_variables.get('always_full_color_change', 0) == 0:
             #        full_color_change = False
 
             if full_color_change:
@@ -1688,10 +1695,7 @@ class zmod_color:
                 raise
 
     def cmd_CHANGE_T_ZCOLOR(self, gcmd):
-        save_variables = self.printer.lookup_object('save_variables', None)
-        save_variables = {} if save_variables == None else save_variables.allVariables
-
-        one_based_indexes = (save_variables.get('color_menu_1_based', 0) != 0)
+        one_based_indexes = (self.save_variables.get('color_menu_1_based', 0) != 0)
 
         gcmd.respond_raw("// action:prompt_end")
         fname = gcmd.get('FILENAME', '')
