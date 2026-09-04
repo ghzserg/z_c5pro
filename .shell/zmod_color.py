@@ -954,7 +954,7 @@ class zmod_color:
             "MOTOR_GRAB2",
             "G1 X250 F1500",
             f"SET_GCODE_OFFSET X={calc_offset_x:.3f} Y={calc_offset_y:.3f} MOVE=1 MOVE_SPEED=100",
-            f"SET_GCODE_OFFSET Z={calc_offset_z:.3f} MOVE=1 MOVE_SPEED=40",
+            f"SET_GCODE_OFFSET Z={calc_offset_z:.3f} MOVE=1 MOVE_SPEED=40 FROM=_T_IN",
             "MOTOR_STOP",
             "SET_VELOCITY_LIMIT ACCEL=20000",
             "M400"
@@ -1001,7 +1001,6 @@ class zmod_color:
                     # Если целевая температура этого конкретного хотенда выше 140, снижаем её
                     if self.saved_temperature > 140.0:
                         self.gcode.run_script_from_command(f"_WAIT_TEMP T={t_index} EXTRUDER_TEMP=140 BED_TEMP=0 FROM=_T_OUT")
-                        self.saved_temperature = 0.0
 
         try:
             with open(FFCONFIG + 'extruder.json', 'r') as file:
