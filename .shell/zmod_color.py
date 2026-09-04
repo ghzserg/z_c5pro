@@ -843,6 +843,7 @@ class zmod_color:
         script = []
         script.append(f"RESPOND MSG=\"Возврат экструдера T{self.saved_extruder}. Temp {self.saved_temperature:.1f}\"")
 
+        extruder_name = "extruder" if self.saved_extruder == 0 else f"extruder{t_index}"
         if self.saved_temperature > 0.0:
             extruder_name = "extruder" if self.saved_extruder == 0 else f"extruder{self.saved_extruder}"
             script.append(f"_WAIT_TEMP EXTRUDER=\"{extruder_name}\" EXTRUDER_TEMP={self.saved_temperature:.1f} BED_TEMP=0 FROM=_T_RESTORE")
