@@ -817,6 +817,8 @@ class zmod_color:
         if not params_str:
             params_str = "xyz"
 
+        self.gcode.run_script_from_command(f"{params_str}")
+
         toolhead = self.printer.lookup_object('toolhead')
         homed_axes = toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
 
