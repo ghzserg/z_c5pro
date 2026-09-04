@@ -988,7 +988,7 @@ class zmod_color:
         if save == 1:
             self.saved_extruder = t_index
 
-            script.append("SAVE_GCODE_STATE NAME=_T_TOOL_STATE")
+            self.gcode.run_script_from_command("SAVE_GCODE_STATE NAME=_T_TOOL_STATE")
 
             extruder_obj = self.printer.lookup_object(extruder_name, None)
             if extruder_obj is not None:
@@ -997,7 +997,7 @@ class zmod_color:
 
                 # Если целевая температура этого конкретного хотенда выше 140, снижаем её
                 if self.saved_temperature > 140.0:
-                    script.append(f"_WAIT_TEMP T={t_index} EXTRUDER_TEMP=140 BED_TEMP=0 FROM=_T_OUT")
+                    self.gcode.run_script_from_command(f"_WAIT_TEMP T={t_index} EXTRUDER_TEMP=140 BED_TEMP=0 FROM=_T_OUT")
             else:
                 self.saved_temperature = 0.0
 
