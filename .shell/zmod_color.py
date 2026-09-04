@@ -843,10 +843,8 @@ class zmod_color:
         script = []
         script.append(f"RESPOND MSG=\"Возврат экструдера T{self.saved_extruder}. Temp {self.saved_temperature:.1f}\"")
 
-        extruder_name = "extruder" if self.saved_extruder == 0 else f"extruder{t_index}"
         if self.saved_temperature > 0.0:
-            extruder_name = "extruder" if self.saved_extruder == 0 else f"extruder{self.saved_extruder}"
-            #script.append(f"_WAIT_TEMP EXTRUDER={extruder_name} EXTRUDER_TEMP={self.saved_temperature:.1f} BED_TEMP=0 FROM=_T_RESTORE")
+            script.append(f"_WAIT_TEMP T={self.saved_extruder} EXTRUDER_TEMP={self.saved_temperature:.1f} BED_TEMP=0 FROM=_T_RESTORE")
 
         # Восстановление физических координат
         script.append("RESTORE_GCODE_STATE NAME=_T_TOOL_STATE MOVE=1 MOVE_SPEED=100")
@@ -992,16 +990,14 @@ class zmod_color:
 
             script.append("SAVE_GCODE_STATE NAME=_T_TOOL_STATE")
 
-            extruder_name = "extruder" if t_index == 0 else f"extruder{t_index}"
-
             extruder_obj = self.printer.lookup_object(extruder_name, None)
             if extruder_obj is not None:
                 current_target = extruder_obj.get_status(self.printer.get_reactor().monotonic()).get('target', 0.0)
                 self.saved_temperature = float(current_target)
 
                 # Если целевая температура этого конкретного хотенда выше 140, снижаем её
-                #if self.saved_temperature > 140.0:
-                #    script.append(f"_WAIT_TEMP EXTRUDER=\"{extruder_name}\" EXTRUDER_TEMP=140 BED_TEMP=0 FROM=_T_OUT")
+                if self.saved_temperature > 140.0:
+                    script.append(f"_WAIT_TEMP T={t_index} EXTRUDER_TEMP=140 BED_TEMP=0 FROM=_T_OUT")
             else:
                 self.saved_temperature = 0.0
 
