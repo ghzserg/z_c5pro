@@ -969,7 +969,8 @@ class zmod_color:
     # Вернуть экструдер на место
     def cmd_T_OUT(self, gcmd):
         silent = gcmd.get_int('SILENT', 1)
-        save = gcmd.get_int('SAVE', 0)
+        save_t = gcmd.get_int('SAVE_T', 0)
+        save_t_temp = gcmd.get_int('SAVE_T_TEMP', 0)
 
         toolhead = self.printer.lookup_object('toolhead')
         homed_axes = toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
@@ -985,22 +986,22 @@ class zmod_color:
             return
 
         # Логика сохранения состояния
-        if save == 1:
+        if save_t == 1:
             self.saved_extruder = t_index
-
             self.gcode.run_script_from_command("SAVE_GCODE_STATE NAME=_T_TOOL_STATE")
 
-            extruder_name = "extruder" if t_index == 0 else f"extruder{t_index}"
-            extruder_obj = self.printer.lookup_object(extruder_name, None)
-            if extruder_obj is not None:
-                current_target = extruder_obj.get_status(self.printer.get_reactor().monotonic()).get('target', 0.0)
-                self.saved_temperature = float(current_target)
+            self.saved_temperature = 0.0
+            if save_t_temp == 1:
+                extruder_name = "extruder" if t_index == 0 else f"extruder{t_index}"
+                extruder_obj = self.printer.lookup_object(extruder_name, None)
+                if extruder_obj is not None:
+                    current_target = extruder_obj.get_status(self.printer.get_reactor().monotonic()).get('target', 0.0)
+                    self.saved_temperature = float(current_target)
 
-                # Если целевая температура этого конкретного хотенда выше 140, снижаем её
-                if self.saved_temperature > 140.0:
-                    self.gcode.run_script_from_command(f"_WAIT_TEMP T={t_index} EXTRUDER_TEMP=140 BED_TEMP=0 FROM=_T_OUT")
-            else:
-                self.saved_temperature = 0.0
+                    # Если целевая температура этого конкретного хотенда выше 140, снижаем её
+                    if self.saved_temperature > 140.0:
+                        self.gcode.run_script_from_command(f"_WAIT_TEMP T={t_index} EXTRUDER_TEMP=140 BED_TEMP=0 FROM=_T_OUT")
+                        self.saved_temperature = 0.0
 
         try:
             with open(FFCONFIG + 'extruder.json', 'r') as file:
