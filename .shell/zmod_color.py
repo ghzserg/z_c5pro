@@ -841,13 +841,13 @@ class zmod_color:
             return
 
         script = []
-        script.append(f"RESPOND MSG=\"Возврат экструдера T{self.saved_extruder}. Temp {self.saved_temperature:.1f}\"")
+        self.gcode.run_script_from_command(f"RESPOND MSG=\"Возврат экструдера T{self.saved_extruder}. Temp {self.saved_temperature:.1f}\"")
 
         if self.saved_temperature > 0.0:
-            script.append(f"_WAIT_TEMP T={self.saved_extruder} EXTRUDER_TEMP={self.saved_temperature:.1f} BED_TEMP=0 FROM=_T_RESTORE")
+            self.gcode.run_script_from_command(f"_WAIT_TEMP T={self.saved_extruder} EXTRUDER_TEMP={self.saved_temperature:.1f} BED_TEMP=0 FROM=_T_RESTORE")
 
         # Восстановление физических координат
-        script.append("RESTORE_GCODE_STATE NAME=_T_TOOL_STATE MOVE=1 MOVE_SPEED=100")
+        self.gcode.run_script_from_command("RESTORE_GCODE_STATE NAME=_T_TOOL_STATE MOVE=1 MOVE_SPEED=100")
 
         self.saved_extruder = -1
         self.saved_temperature = 0.0
