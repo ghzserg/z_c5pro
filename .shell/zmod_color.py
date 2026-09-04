@@ -844,8 +844,8 @@ class zmod_color:
         if self.saved_extruder == -1:
             return
 
-        script = []
         self.gcode.run_script_from_command(f"RESPOND MSG=\"Возврат экструдера T{self.saved_extruder}. Temp {self.saved_temperature:.1f}\"")
+        self.gcode.run_script_from_command(f"_T_IN T={self.saved_extruder}")
 
         if self.saved_temperature > 0.0:
             self.gcode.run_script_from_command(f"_WAIT_TEMP T={self.saved_extruder} EXTRUDER_TEMP={self.saved_temperature:.1f} BED_TEMP=0 FROM=_T_RESTORE")
@@ -855,8 +855,6 @@ class zmod_color:
 
         self.saved_extruder = -1
         self.saved_temperature = 0.0
-
-        self.gcode.run_script_from_command("\n".join(script))
 
     # Вставить экструдер в голову
     def cmd_T_IN(self, gcmd):
@@ -1041,6 +1039,10 @@ class zmod_color:
         active_t = self._get_active_extruder(gcmd)
         if active_t != -1:
             raise gcmd.error(f"Экструдер T{active_t} не снят с головы. ")
+
+        # Восстановление физических координат
+        if save_t == 1:
+            self.gcode.run_script_from_command("RESTORE_GCODE_STATE NAME=_T_TOOL_STATE MOVE=1 MOVE_SPEED=100")
 
     def cmd_SET_EXTRUDER_SLOT(self, gcmd):
         zslot = gcmd.get_int('SLOT', 0)
