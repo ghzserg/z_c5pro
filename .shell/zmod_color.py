@@ -824,7 +824,7 @@ class zmod_color:
             self.gcode.run_script_from_command("G28.1\nM400")
         else:
             if 'x' in params_str and 'y' in params_str:
-                self.gcode.run_script_from_command("G28.1 XY\nM400")
+                self.gcode.run_script_from_command("G28.1 X Y\nM400")
             else:
                 if 'x' in params_str:
                     self.gcode.run_script_from_command("G28.1 X\nM400")
@@ -868,7 +868,7 @@ class zmod_color:
         homed_axes = toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
 
         if 'x' not in homed_axes or 'y' not in homed_axes:
-            self.gcode.run_script_from_command("G28.1 XY\nM400")
+            self.gcode.run_script_from_command("G28.1 X Y\nM400")
 
         active_t = self._get_active_extruder(gcmd)
 
@@ -974,7 +974,7 @@ class zmod_color:
         homed_axes = toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
 
         if 'x' not in homed_axes or 'y' not in homed_axes:
-            self.gcode.run_script_from_command("G28.1 XY\nM400")
+            self.gcode.run_script_from_command("G28.1 X Y\nM400")
 
         t_index = self._get_active_extruder(gcmd)
 
