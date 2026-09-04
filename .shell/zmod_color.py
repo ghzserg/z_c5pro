@@ -850,6 +850,16 @@ class zmod_color:
         if self.saved_temperature > 0.0:
             self.gcode.run_script_from_command(f"_WAIT_TEMP T={self.saved_extruder} EXTRUDER_TEMP={self.saved_temperature:.1f} BED_TEMP=0 FROM=_T_RESTORE")
 
+        gcode_obj = self.printer.lookup_object('gcode')
+        states = getattr(gcode_obj, 'gcode_states', {})
+        target_state = states.get('_T_TOOL_STATE', None)
+
+        if target_state is None:
+            raise gcmd.error("Критическая ошибка: Сохраненное состояние _T_TOOL_STATE не найдено в Klipper!")
+
+        saved_z = target_state.position[2]
+        self.gcode.run_script_from_command("G90\nG1 Z{saved_z:.3f} F1200")
+
         # Восстановление физических координат
         self.gcode.run_script_from_command("RESTORE_GCODE_STATE NAME=_T_TOOL_STATE MOVE=1 MOVE_SPEED=100")
 
@@ -1035,6 +1045,8 @@ class zmod_color:
         ]
 
         self.gcode.run_script_from_command("\n".join(script))
+        if 'z' in homed_axes:
+            self.gcode.run_script_from_command("SET_GCODE_OFFSET Z=0 MOVE=1 MOVE_SPEED=100 FROM=_T_OUT\nM400")
 
         active_t = self._get_active_extruder(gcmd)
         if active_t != -1:
