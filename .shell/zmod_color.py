@@ -1155,7 +1155,7 @@ class zmod_color:
         else:
             gcmd.respond_raw(self._t('no_response', json.dumps(response_data)))
 
-    def get_al1lowed_tool_count(self, gcmd):
+    def get_allowed_tool_count(self, gcmd):
         return 4
 
     def rgb_to_lab(self, r, g, b):
