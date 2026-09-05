@@ -858,17 +858,24 @@ class zmod_color:
         if target_state is None:
             raise gcmd.error("Критическая ошибка: Сохраненное состояние _T_TOOL_STATE не найдено в Klipper!")
 
-        saved_last_position = target_state['last_position']
-        saved_base_position = target_state['base_position']
-
-        saved_gcode_z = saved_last_position[2] - saved_base_position[2]
 
         move_status = self.gcode_move.get_status(self.printer.get_reactor().monotonic())
         is_absolute = move_status.get('absolute_coordinates', True)
         if not is_absolute:
             self.gcode.run_script_from_command("G90")
 
-        self.gcode.run_script_from_command(f"G1 Z{saved_gcode_z:.3f} F1200")
+        current_z = move_status.get('gcode_position', [0, 0, 0])[2]
+        if current_z < 10.0:
+            self.gcode.run_script_from_command("G1 Z10.000 F1200\nM400")
+
+        saved_last_position = target_state['last_position']
+        saved_base_position = target_state['base_position']
+
+        saved_gcode_x = saved_last_position[0] - saved_base_position[0]
+        saved_gcode_y = saved_last_position[1] - saved_base_position[1]
+        saved_gcode_z = saved_last_position[2] - saved_base_position[2]
+
+        self.gcode.run_script_from_command(f"G1 X{saved_gcode_x:.3f} Y{saved_gcode_y:.3f} F1200\nM400\G1 Z{saved_gcode_x:.3f}\nM400")
 
         # Восстановление физических координат
         self.gcode.run_script_from_command("RESTORE_GCODE_STATE NAME=_T_TOOL_STATE MOVE=1 MOVE_SPEED=100")
@@ -1074,10 +1081,11 @@ class zmod_color:
             "M400"
         ]
 
+        self.gcode.run_script_from_command("\n".join(script))
+
         if not is_absolute:
             self.gcode.run_script_from_command("G91")
 
-        self.gcode.run_script_from_command("\n".join(script))
         if 'z' in homed_axes:
             self.gcode.run_script_from_command("SET_GCODE_OFFSET Z=0 MOVE=1 MOVE_SPEED=100 FROM=_T_OUT\nM400")
 
