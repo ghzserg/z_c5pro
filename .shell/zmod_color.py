@@ -866,7 +866,7 @@ class zmod_color:
 
         current_z = move_status.get('gcode_position', [0, 0, 0])[2]
         if current_z < 10.0:
-            self.gcode.run_script_from_command("G1 Z10.000 F1200\nM400")
+            self.gcode.run_script_from_command("G1 Z10.000 F6000\nM400")
 
         saved_last_position = target_state['last_position']
         saved_base_position = target_state['base_position']
@@ -875,7 +875,7 @@ class zmod_color:
         saved_gcode_y = saved_last_position[1] - saved_base_position[1]
         saved_gcode_z = saved_last_position[2] - saved_base_position[2]
 
-        self.gcode.run_script_from_command(f"G1 X{saved_gcode_x:.3f} Y{saved_gcode_y:.3f} F1200\nM400\G1 Z{saved_gcode_x:.3f}\nM400")
+        self.gcode.run_script_from_command(f"G1 X{saved_gcode_x:.3f} Y{saved_gcode_y:.3f} F6000\nM400\nG1 Z{saved_gcode_x:.3f}\nM400")
 
         # Восстановление физических координат
         self.gcode.run_script_from_command("RESTORE_GCODE_STATE NAME=_T_TOOL_STATE MOVE=1 MOVE_SPEED=100")
@@ -971,7 +971,7 @@ class zmod_color:
 
         current_z = move_status.get('gcode_position', [0, 0, 0])[2]
         if current_z < 10.0:
-            self.gcode.run_script_from_command("G1 Z10.000 F1200\nM400")
+            self.gcode.run_script_from_command("G1 Z10.000 F6000\nM400")
 
         # Формируем и выполняем последовательность G-code команд
         script = [
@@ -1062,7 +1062,7 @@ class zmod_color:
         if 'z' in homed_axes:
             current_z = move_status.get('gcode_position', [0, 0, 0])[2]
             if current_z < 10.0:
-                self.gcode.run_script_from_command("G1 Z10.000 F1200\nM400")
+                self.gcode.run_script_from_command("G1 Z10.000 F6000\nM400")
 
         # Вычисляем промежуточную точку входа (X_park - 10)
         park_x_minus_10 = park_x - 10.0
