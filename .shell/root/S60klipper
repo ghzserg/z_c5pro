@@ -18,6 +18,8 @@ PID_FILE=/run/klipper.pid
 #KLIPPER_NICENESS=$NICE
 
 start() {
+    [ -f /opt/config/mod_data/printer.cfg ] && cp /opt/config/mod_data/printer.cfg /opt/config/printer.cfg
+    [ -f /opt/config/mod_data/printer.base.cfg ] && cp /opt/config/mod_data/printer.base.cfg /opt/config/printer.base.cfg
     mkdir -p $(dirname $KLIPPER_LOG) # make sure the log directory exists
 #    /usr/data/zmod/zmod/.shell/root/mcu/boot_eboard_mcu
 #    start-stop-daemon -S -b -m -p $PID_FILE -N $KLIPPER_NICENESS --exec $PYTHON -- $KLIPPER $KLIPPER_CONF -l $KLIPPER_LOG -a $KLIPPER_UDS
