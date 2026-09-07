@@ -592,6 +592,9 @@ class zmod_color:
         self.saved_extruder = -1
         self.saved_temperature = 0.0
 
+        self.active_tool_id = -2
+        self.active_tool_name = "Error"
+
         self.display = config.getboolean('display', True)
         self.lang = 'en'
         self.valid_types = [
@@ -602,7 +605,6 @@ class zmod_color:
         self.gcode = self.printer.lookup_object('gcode')
         self.gcode.register_command('GET_ZCOLOR', self.cmd_GET_ZCOLOR)
         self.gcode.register_command('SET_ZCOLOR', self.cmd_SET_ZCOLOR)
-        self.gcode.register_command('_SET_EXTRUDER_SLOT', self.cmd_SET_EXTRUDER_SLOT)
         self.gcode.register_command('PRINT_ZCOLOR', self.cmd_PRINT_ZCOLOR)
         self.gcode.register_command('CHANGE_T_ZCOLOR', self.cmd_CHANGE_T_ZCOLOR)
         self.gcode.register_command('_CHANGE_FILAMENT', self.cmd_CHANGE_FILAMENT)
@@ -648,6 +650,12 @@ class zmod_color:
         self.toolhead = self.printer.lookup_object('toolhead')
         self.save_variables = self.printer.lookup_object('save_variables', None)
         self.save_variables = {} if self.save_variables == None else self.save_variables.allVariables
+
+        self.home_buttons = ['extruder_pos1', 'extruder_pos2', 'extruder_pos3', 'extruder_pos4']
+        self.grab_buttons = ['extruder_grab1', 'extruder_grab2', 'extruder_grab3', 'extruder_grab4']
+
+        self.home_objs = [self.printer.lookup_object(f"gcode_button {b}", None) for b in self.home_buttons]
+        self.grab_objs = [self.printer.lookup_object(f"gcode_button {b}", None) for b in self.grab_buttons]
 
     def get_display(self):
         return self.display
@@ -733,10 +741,13 @@ class zmod_color:
                 })
         return slots_info
 
-    def _get_active_extruder(self, gcmd):
-        home_buttons = ['extruder_pos1', 'extruder_pos2', 'extruder_pos3', 'extruder_pos4']
-        grab_buttons = ['extruder_grab1', 'extruder_grab2', 'extruder_grab3', 'extruder_grab4']
+    def get_status(self, eventtime):
+        return {
+            'tool_id': self.active_tool_id,
+            'tool_name': self.active_tool_name
+        }
 
+    def _get_active_extruder(self, gcmd):
         not_home_indices = []
         on_head_indices = []
 
@@ -744,13 +755,14 @@ class zmod_color:
 
         for i in range(4):
             is_home = False
-            home_obj = self.printer.lookup_object(f"gcode_button {home_buttons[i]}", None)
+            home_obj = self.home_objs[i]
+
             if home_obj is not None:
                 if home_obj.get_status(cmd_time).get('state', '') == "RELEASED":
                     not_home_indices.append(i)
 
             is_on_head = True
-            grab_obj = self.printer.lookup_object(f"gcode_button {grab_buttons[i]}", None)
+            grab_obj = self.grab_objs[i]
             if grab_obj is not None:
                 if grab_obj.get_status(cmd_time).get('state', '') == "PRESSED":
                     on_head_indices.append(i)
@@ -762,29 +774,36 @@ class zmod_color:
 
         # Все дома, голова пуста
         if len(not_home_indices) == 0 and len(on_head_indices) == 0:
+            self.active_tool_id = -1
+            self.active_tool_name = "none"
             gcmd.respond_raw(f"// Head: -1")
             return -1
 
         # Если один не дома, и именно он на голове — возвращаем его номер (0-3)
         if len(not_home_indices) == 1 and len(on_head_indices) == 1:
             if not_home_indices[0] == on_head_indices[0]:
-                gcmd.respond_raw(f"// Head: {not_home_indices[0]}")
+                self.active_tool_id = not_home_indices[0]
+                self.active_tool_name = f"extruder{self.active_tool_id if self.active_tool_id > 0 else ''}"
+                gcmd.respond_raw(f"// Head: T{not_home_indices[0]}")
                 return not_home_indices[0]
             else:
+                self.active_tool_id = -2
+                self.active_tool_name = "Error"
                 raise gcmd.error(f"Рассинхрон датчиков: Экструдер {not_home_indices[0]} не дома, но датчик головы видит Экструдер {on_head_indices[0]}!")
+
+        self.active_tool_id = -2
+        self.active_tool_name = "Error"
 
         raise gcmd.error(f"Ошибка датчиков: Не дома {not_home_indices}. На голове: {on_head_indices}.")
 
     def cmd_T_STATUS(self, gcmd):
-        home_buttons = ['extruder_pos1', 'extruder_pos2', 'extruder_pos3', 'extruder_pos4']
-        grab_buttons = ['extruder_grab1', 'extruder_grab2', 'extruder_grab3', 'extruder_grab4']
-
         query_time = self.printer.get_reactor().monotonic()
 
         for i in range(4):
-            home_obj = self.printer.lookup_object(f"gcode_button {home_buttons[i]}", None)
-            grab_obj = self.printer.lookup_object(f"gcode_button {grab_buttons[i]}", None)
+            home_obj = self.home_objs[i]
             is_home = (home_obj.get_status(query_time).get('state', '') == "PRESSED") if home_obj else False
+
+            grab_obj = self.grab_objs[i]
             is_head = (grab_obj.get_status(query_time).get('state', '') == "PRESSED") if grab_obj else False
 
             if is_home and not is_head:
@@ -1096,13 +1115,6 @@ class zmod_color:
         # Восстановление физических координат
         if save_t == 1:
             self.gcode.run_script_from_command("RESTORE_GCODE_STATE NAME=_T_TOOL_STATE MOVE=1 MOVE_SPEED=100")
-
-    def cmd_SET_EXTRUDER_SLOT(self, gcmd):
-        zslot = gcmd.get_int('SLOT', 0)
-        if zslot < 1 or zslot > self.color_limit:
-            raise gcmd.error(self._t('error_slot'))
-        if self.display:
-            raise gcmd.error("Error: Display on")
 
     def cmd_GET_ZCOLOR(self, gcmd):
         silent = gcmd.get_int('SILENT', 0)
