@@ -8,74 +8,49 @@ import struct
 import urllib.parse
 import io
 import os
-import threading
 from PIL import Image
 
 PORT = 8010
 TOUCH_DEV = '/dev/input/event2'
 EVENT_FORMAT = 'LLHHl'
 
-def write_event(f, sec, usec, type_, code, value):
-    f.write(struct.pack(EVENT_FORMAT, sec, usec, type_, code, value))
-
-def send_touch_action(action_type, x, y):
+def send_touch_event(x, y):
     try:
         t = time.time()
         sec = int(t)
         usec = int((t - sec) * 1000000)
 
         with open(TOUCH_DEV, 'wb') as f:
-            if action_type == 'down':
-                write_event(f, sec, usec, 1, 330, 1)  # BTN_TOUCH Down
-                write_event(f, sec, usec, 3, 53, x)    # ABS_MT_POSITION_X
-                write_event(f, sec, usec, 3, 54, y)    # ABS_MT_POSITION_Y
-                write_event(f, sec, usec, 3, 48, 18)   # ABS_MT_TOUCH_MAJOR
-                write_event(f, sec, usec, 3, 50, 18)   # ABS_MT_TOUCH_MINOR
-                write_event(f, sec, usec, 3, 57, 0)    # ABS_MT_TRACKING_ID
-                write_event(f, sec, usec, 0, 2, 0)     # SYN_MT_REPORT
-                write_event(f, sec, usec, 0, 0, 0)     # SYN_REPORT
+            f.write(struct.pack(EVENT_FORMAT, sec, usec, 1, 330, 1))
+            f.write(struct.pack(EVENT_FORMAT, sec, usec, 3, 53, x))
+            f.write(struct.pack(EVENT_FORMAT, sec, usec, 3, 54, y))
+            f.write(struct.pack(EVENT_FORMAT, sec, usec, 3, 48, 18))
+            f.write(struct.pack(EVENT_FORMAT, sec, usec, 3, 50, 18))
+            f.write(struct.pack(EVENT_FORMAT, sec, usec, 3, 57, 0))
+            f.write(struct.pack(EVENT_FORMAT, sec, usec, 0, 2, 0))
+            f.write(struct.pack(EVENT_FORMAT, sec, usec, 0, 0, 0))
+            f.flush()
 
-            elif action_type == 'move':
-                write_event(f, sec, usec, 3, 53, x)    # ABS_MT_POSITION_X
-                write_event(f, sec, usec, 3, 54, y)    # ABS_MT_POSITION_Y
-                write_event(f, sec, usec, 0, 2, 0)     # SYN_MT_REPORT
-                write_event(f, sec, usec, 0, 0, 0)     # SYN_REPORT
+            time.sleep(0.07)
 
-            elif action_type == 'up':
-                write_event(f, sec, usec, 1, 330, 0)  # BTN_TOUCH Up
-                write_event(f, sec, usec, 3, 57, -1)   # Сброс ID трекинга
-                write_event(f, sec, usec, 0, 2, 0)     # SYN_MT_REPORT
-                write_event(f, sec, usec, 0, 0, 0)     # SYN_REPORT
+            t = time.time()
+            sec = int(t)
+            usec = int((t - sec) * 1000000)
 
+            f.write(struct.pack(EVENT_FORMAT, sec, usec, 1, 330, 0))
+            f.write(struct.pack(EVENT_FORMAT, sec, usec, 0, 2, 0))
+            f.write(struct.pack(EVENT_FORMAT, sec, usec, 0, 0, 0))
             f.flush()
     except Exception:
         pass
-
-def emulate_wheel_scroll_safe(direction):
-    """
-    Эмуляция мощного вертикального свайпа строго в пустой зоне экрана.
-    Координаты указаны с учетом системного разворота ROTATE_270.
-    """
-    x_touch_base = 200
-    y_touch_base = 800 - 260 # 540
-
-    send_touch_action('down', x_touch_base, y_touch_base)
-    time.sleep(0.02)
-
-    scroll_step = 200 if direction == 1 else -200
-    x_touch_new = max(10, min(470, x_touch_base + scroll_step))
-
-    send_touch_action('move', x_touch_new, y_touch_base)
-    time.sleep(0.03)
-
-    send_touch_action('up', x_touch_new, y_touch_base)
 
 class StreamHandler(http.server.BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         return
 
     def do_GET(self):
-        if self.path in ['/', '/index.html', '/stream']:
+        # 1. Корневая HTML страница (Страница HTTP для Fluidd)
+        if self.path == '/' or self.path == '/index.html' or self.path == '/stream':
             self.send_response(200)
             self.send_header('Content-type', 'text/html; charset=utf-8')
             self.end_headers()
@@ -85,29 +60,43 @@ class StreamHandler(http.server.BaseHTTPRequestHandler):
             <head>
                 <style>
                     html, body {
-                        margin: 0; padding: 0; width: 100%; height: 100%;
-                        background: #1e1e24; overflow: hidden;
-                        display: flex; justify-content: center; align-items: center;
+                        margin: 0;
+                        padding: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: transparent;
+                        overflow: hidden;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
                     }
                     .container {
-                        position: relative; width: 100%; height: 100%;
-                        display: flex; justify-content: center; align-items: center;
+                        position: relative;
+                        width: 100%;
+                        height: 100%;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
                     }
                     img {
-                        width: 100%; height: 100%; object-fit: contain;
-                        cursor: pointer; user-select: none; -webkit-user-drag: none;
+                        width: 100%;
+                        height: 100%;
+                        object-fit: contain;
+                        cursor: pointer;
+                        user-select: none;
+                        -webkit-user-drag: none;
                     }
                 </style>
             </head>
             <body>
                 <div class="container">
-                    <img id="screen" src="/screen/streams" alt="Screen Stream">
+                    <img id="screen" src="/screen/streams" onclick="sendClick(event)">
                 </div>
                 <script>
-                    const img = document.getElementById('screen');
-
-                    function getTargetCoords(clientX, clientY) {
+                    function sendClick(event) {
+                        const img = document.getElementById('screen');
                         const rect = img.getBoundingClientRect();
+
                         const imgRatio = 800 / 480;
                         const containerRatio = rect.width / rect.height;
 
@@ -124,31 +113,16 @@ class StreamHandler(http.server.BaseHTTPRequestHandler):
                             offsetY = (rect.height - actualHeight) / 2;
                         }
 
-                        const clickX = clientX - rect.left - offsetX;
-                        const clickY = clientY - rect.top - offsetY;
+                        const clickX = event.clientX - rect.left - offsetX;
+                        const clickY = event.clientY - rect.top - offsetY;
 
                         const x = Math.round(clickX * (800 / actualWidth));
                         const y = Math.round(clickY * (480 / actualHeight));
-                        return { x, y };
+
+                        if (x >= 0 && x <= 800 && y >= 0 && y <= 480) {
+                            fetch(`/screen/click?x=${x}&y=${y}`);
+                        }
                     }
-
-                    img.addEventListener('mousedown', (e) => {
-                        if (e.button !== 0) return;
-                        const coords = getTargetCoords(e.clientX, e.clientY);
-                        fetch(`/screen/click?action=down&x=${coords.x}&y=${coords.y}`, { keepalive: true });
-                    });
-
-                    img.addEventListener('mouseup', (e) => {
-                        if (e.button !== 0) return;
-                        const coords = getTargetCoords(e.clientX, e.clientY);
-                        fetch(`/screen/click?action=up&x=${coords.x}&y=${coords.y}`, { keepalive: true });
-                    });
-
-                    img.addEventListener('wheel', (e) => {
-                        e.preventDefault();
-                        const dir = e.deltaY > 0 ? -1 : 1;
-                        fetch(`/screen/click?action=wheel&dir=${dir}`, { keepalive: true });
-                    }, { passive: false });
                 </script>
             </body>
             </html>
@@ -156,28 +130,22 @@ class StreamHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(html.encode('utf-8'))
             return
 
-        # 2. Роутер кликов и безопасного скролла
+        # 2. Обработка кликов
         elif self.path.startswith('/click'):
             parsed_url = urllib.parse.urlparse(self.path)
             params = urllib.parse.parse_qs(parsed_url.query)
 
-            action = params.get('action', ['down'])[0]
+            if 'x' in params and 'y' in params:
+                x_web = int(params['x'][0])
+                y_web = int(params['y'][0])
 
-            if action == 'wheel':
-                direction = int(params.get('dir', ['1'])[0])
-                # Вызываем скролл в полностью изолированной от кнопок координатной точке
-                threading.Thread(target=emulate_wheel_scroll_safe, args=(direction,)).start()
-            else:
-                x_web = int(params.get('x', ['0'])[0])
-                y_web = int(params.get('y', ['0'])[0])
-
-                # Матричная ротация координат под физический экран принтера
                 x_touch = y_web
                 y_touch = 800 - x_web
+
                 x_touch = max(0, min(480, x_touch))
                 y_touch = max(0, min(800, y_touch))
 
-                send_touch_action(action, x_touch, y_touch)
+                send_touch_event(x_touch, y_touch)
 
             self.send_response(200)
             self.send_header('Content-type', 'text/plain')
