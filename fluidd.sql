@@ -399,15 +399,6 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('flui
             "visible": true
         },
         {
-            "alias": "Очистить сопло",
-            "categoryId": "944c031b-feef-4b75-badf-21c30508fb24",
-            "color": "",
-            "disabledWhilePrinting": false,
-            "name": "clear_nozzle",
-            "order": 4,
-            "visible": true
-        },
-        {
             "alias": "Выключить принтер",
             "categoryId": "0077449b-cd10-4059-aebd-bf17be6cb270",
             "color": "#ff0000",
@@ -571,15 +562,6 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('flui
             "disabledWhilePrinting": true,
             "name": "bed_level_screws_tune",
             "order": 0,
-            "visible": true
-        },
-        {
-            "alias": "Контроль сопла",
-            "categoryId": "244d667b-c410-4e01-9bf1-e8e0b9deabe2",
-            "color": "#ff0000",
-            "disabledWhilePrinting": true,
-            "name": "nozzle_control",
-            "order": 5,
             "visible": true
         },
         {
@@ -760,15 +742,6 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('flui
             "visible": false
         },
         {
-            "alias": "Сбросить тензодатчики",
-            "categoryId": "244d667b-c410-4e01-9bf1-e8e0b9deabe2",
-            "color": "",
-            "disabledWhilePrinting": false,
-            "name": "load_cell_tare",
-            "order": 4,
-            "visible": true
-        },
-        {
             "alias": "",
             "categoryId": "5ceaef9c-2e66-4bbf-998b-94fcab116597",
             "color": "",
@@ -890,15 +863,6 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('flui
             "visible": true
         },
         {
-            "alias": "",
-            "categoryId": "944c031b-feef-4b75-badf-21c30508fb24",
-            "color": "",
-            "disabledWhilePrinting": false,
-            "name": "new_save_config",
-            "order": 8,
-            "visible": true
-        },
-        {
             "alias": "Параметры Z-Mod",
             "categoryId": "944c031b-feef-4b75-badf-21c30508fb24",
             "color": "#008800",
@@ -994,14 +958,6 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('main
             },
             {
                "color" : "group",
-               "name" : "LOAD_CELL_TARE",
-               "pos" : 5,
-               "showInPause" : true,
-               "showInPrinting" : true,
-               "showInStandby" : true
-            },
-            {
-               "color" : "group",
                "name" : "ZSHAPER",
                "pos" : 6,
                "showInPause" : false,
@@ -1022,14 +978,6 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('main
                "pos" : 8,
                "showInPause" : true,
                "showInPrinting" : true,
-               "showInStandby" : true
-            },
-            {
-               "color" : "group",
-               "name" : "NOZZLE_CONTROL",
-               "pos" : 9,
-               "showInPause" : false,
-               "showInPrinting" : false,
                "showInStandby" : true
             }
          ],
@@ -1150,14 +1098,6 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('main
             },
             {
                "color" : "group",
-               "name" : "CLEAR_NOZZLE",
-               "pos" : 7,
-               "showInPause" : true,
-               "showInPrinting" : true,
-               "showInStandby" : true
-            },
-            {
-               "color" : "group",
                "name" : "CLOSE_DIALOGS",
                "pos" : 9,
                "showInPause" : true,
@@ -1168,14 +1108,6 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('main
                "color" : "group",
                "name" : "FAST_CLOSE_DIALOGS",
                "pos" : 10,
-               "showInPause" : true,
-               "showInPrinting" : true,
-               "showInStandby" : true
-            },
-            {
-               "color" : "group",
-               "name" : "NEW_SAVE_CONFIG",
-               "pos" : 11,
                "showInPause" : true,
                "showInPrinting" : true,
                "showInStandby" : true

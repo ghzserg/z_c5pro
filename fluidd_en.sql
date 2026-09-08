@@ -390,15 +390,7 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('flui
             "order": 1,
             "visible": true
         },
-        {
-            "alias": "",
-            "categoryId": "944c031b-feef-4b75-badf-21c30508fb24",
-            "color": "",
-            "disabledWhilePrinting": false,
-            "name": "clear_nozzle",
-            "order": 4,
-            "visible": true
-        },
+
         {
             "alias": "",
             "categoryId": "0077449b-cd10-4059-aebd-bf17be6cb270",
@@ -754,15 +746,6 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('flui
         },
         {
             "alias": "",
-            "categoryId": "244d667b-c410-4e01-9bf1-e8e0b9deabe2",
-            "color": "",
-            "disabledWhilePrinting": false,
-            "name": "load_cell_tare",
-            "order": 4,
-            "visible": true
-        },
-        {
-            "alias": "",
             "categoryId": "5ceaef9c-2e66-4bbf-998b-94fcab116597",
             "color": "",
             "disabledWhilePrinting": false,
@@ -978,14 +961,6 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('main
             },
             {
                "color" : "group",
-               "name" : "LOAD_CELL_TARE",
-               "pos" : 5,
-               "showInPause" : true,
-               "showInPrinting" : true,
-               "showInStandby" : true
-            },
-            {
-               "color" : "group",
                "name" : "ZSHAPER",
                "pos" : 6,
                "showInPause" : false,
@@ -1128,14 +1103,6 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('main
                "color" : "group",
                "name" : "PLAY_MIDI",
                "pos" : 6,
-               "showInPause" : true,
-               "showInPrinting" : true,
-               "showInStandby" : true
-            },
-            {
-               "color" : "group",
-               "name" : "CLEAR_NOZZLE",
-               "pos" : 7,
                "showInPause" : true,
                "showInPrinting" : true,
                "showInStandby" : true
