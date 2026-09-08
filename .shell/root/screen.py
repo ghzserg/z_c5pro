@@ -173,9 +173,7 @@ class StreamHandler(http.server.BaseHTTPRequestHandler):
                             frame = last_frame
                         else:
                             img = Image.frombytes('RGBA', (480, 800), fb, 'raw', 'BGRA')
-
-                            img = img.convert('RGB').transpose(Image.ROTATE_270)
-
+                            img = img.transpose(Image.ROTATE_270).convert('RGB')
                             memory_buffer.seek(0)
                             memory_buffer.truncate(0)
 
