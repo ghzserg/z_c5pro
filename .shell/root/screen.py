@@ -159,23 +159,40 @@ class StreamHandler(http.server.BaseHTTPRequestHandler):
             self.send_header('Content-type', 'multipart/x-mixed-replace; boundary=frame')
             self.end_headers()
             try:
-                while True:
-                    fb = open('/dev/fb0', 'rb').read()
-                    img = Image.frombytes('RGBA', (480, 800), fb, 'raw', 'BGRA')
-                    img = img.transpose(Image.ROTATE_270).convert('RGB')
+                last_fb = b''
+                last_frame = b''
 
-                    tmp_file = io.BytesIO()
-                    img.save(tmp_file, format='JPEG', quality=75)
-                    frame = tmp_file.getvalue()
+                memory_buffer = io.BytesIO()
 
-                    self.wfile.write(b'--frame\r\n')
-                    self.send_header('Content-type', 'image/jpeg')
-                    self.send_header('Content-length', str(len(frame)))
-                    self.end_headers()
-                    self.wfile.write(frame)
-                    self.wfile.write(b'\r\n')
+                with open('/dev/fb0', 'rb') as fb_file:
+                    while True:
+                        fb_file.seek(0)
+                        fb = fb_file.read()
 
-                    time.sleep(0.1) # ~10 FPS
+                        if fb == last_fb and last_frame:
+                            frame = last_frame
+                        else:
+                            img = Image.frombytes('RGBA', (480, 800), fb, 'raw', 'BGRA')
+
+                            img = img.convert('RGB').transpose(Image.ROTATE_270)
+
+                            memory_buffer.seek(0)
+                            memory_buffer.truncate(0)
+
+                            img.save(memory_buffer, format='JPEG', quality=60)
+                            frame = memory_buffer.getvalue()
+
+                            last_fb = fb
+                            last_frame = frame
+
+                        self.wfile.write(b'--frame\r\n')
+                        self.send_header('Content-type', 'image/jpeg')
+                        self.send_header('Content-length', str(len(frame)))
+                        self.end_headers()
+                        self.wfile.write(frame)
+                        self.wfile.write(b'\r\n')
+
+                        time.sleep(0.2) # ~5 FPS
             except Exception:
                 pass
             return
