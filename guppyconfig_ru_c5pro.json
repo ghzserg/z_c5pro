@@ -9,7 +9,7 @@
   "printers": {
     "C5Pro": {
       "default_macros": {
-        "cooldown": "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=0\nSET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=0",
+        "cooldown": "TURN_OFF_HEATERS",
         "load_filament": "LOAD_FILAMENT"
       },
       "fans": [
