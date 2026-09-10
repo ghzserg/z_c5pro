@@ -71,7 +71,7 @@
           "color": "purple",
           "controllable": true,
           "display_name": "Камера",
-          "id": "chamber_heater"
+          "id": "heater_generic chamber_heater"
         }
       ],
       "moonraker_api_key": false,
