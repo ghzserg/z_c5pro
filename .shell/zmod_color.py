@@ -798,6 +798,8 @@ class zmod_color:
         raise gcmd.error(f"Ошибка датчиков: Не дома {not_home_indices}. На голове: {on_head_indices}.")
 
     def cmd_T_STATUS(self, gcmd):
+        self._get_active_extruder(self, gcmd)
+
         query_time = self.printer.get_reactor().monotonic()
 
         for i in range(4):
