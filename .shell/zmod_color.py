@@ -744,6 +744,7 @@ class zmod_color:
     def get_status(self, eventtime):
         return {
             'tool_id': self.active_tool_id,
+            'total_tools': self.color_limit,
             'tool_name': self.active_tool_name
         }
 
@@ -775,7 +776,7 @@ class zmod_color:
         # Все дома, голова пуста
         if len(not_home_indices) == 0 and len(on_head_indices) == 0:
             self.active_tool_id = -1
-            self.active_tool_name = "none"
+            self.active_tool_name = "None"
             gcmd.respond_raw(f"// Head: -1")
             return -1
 
@@ -877,7 +878,6 @@ class zmod_color:
         if target_state is None:
             raise gcmd.error("Критическая ошибка: Сохраненное состояние _T_TOOL_STATE не найдено в Klipper!")
 
-
         move_status = self.gcode_move.get_status(self.printer.get_reactor().monotonic())
         is_absolute = move_status.get('absolute_coordinates', True)
         if not is_absolute:
@@ -922,11 +922,15 @@ class zmod_color:
 
         if active_t != -1:
             if silent == 0:
+                self.active_tool_id = -2
+                self.active_tool_name = "Error"
                 raise gcmd.error(f"Невозможно взять T{t_index}. Каретка занята экструдером T{active_t}! Сначала вызовите _T_OUT.")
             else:
                 self.cmd_T_OUT(gcmd)
                 active_t = self._get_active_extruder(gcmd)
                 if active_t != -1:
+                    self.active_tool_id = -2
+                    self.active_tool_name = "Error"
                     raise gcmd.error(f"Невозможно взять T{t_index}. Каретка занята экструдером T{active_t}! Сначала вызовите _T_OUT.")
 
         if 'z' not in homed_axes:
@@ -1019,6 +1023,8 @@ class zmod_color:
 
         active_t = self._get_active_extruder(gcmd)
         if active_t != t_index:
+            self.active_tool_id = -2
+            self.active_tool_name = "Error"
             raise gcmd.error(f"Неверный экструдер в голове. Должен быть T{t_index} != T{active_t}")
 
     # Вернуть экструдер на место
@@ -1110,11 +1116,16 @@ class zmod_color:
 
         active_t = self._get_active_extruder(gcmd)
         if active_t != -1:
+            self.active_tool_id = -2
+            self.active_tool_name = "Error"
             raise gcmd.error(f"Экструдер T{active_t} не снят с головы. ")
 
         # Восстановление физических координат
         if save_t == 1:
             self.gcode.run_script_from_command("RESTORE_GCODE_STATE NAME=_T_TOOL_STATE MOVE=1 MOVE_SPEED=100")
+
+            self.active_tool_id = -1
+            self.active_tool_name = "None"
 
     def cmd_GET_ZCOLOR(self, gcmd):
         silent = gcmd.get_int('SILENT', 0)
@@ -1168,7 +1179,7 @@ class zmod_color:
             gcmd.respond_raw(self._t('no_response', json.dumps(response_data)))
 
     def get_allowed_tool_count(self, gcmd):
-        return 4
+        return self.color_limit
 
     def rgb_to_lab(self, r, g, b):
         """sRGB (0-255) → CIE LAB (D65)"""
