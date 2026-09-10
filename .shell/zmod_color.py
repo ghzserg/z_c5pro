@@ -593,7 +593,6 @@ class zmod_color:
         self.saved_temperature = 0.0
 
         self.active_tool_id = -2
-        self.active_tool_name = "Error"
 
         self.display = config.getboolean('display', True)
         self.lang = 'en'
@@ -630,6 +629,12 @@ class zmod_color:
             clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
             data = json.loads(clean)
             self.checkCode = data['lanModeCode']
+
+        hide_filament_types = config.get('hide_filament_types', '')
+        if not hide_filament_types:
+            self.hide_filament_types = []
+        else:
+            self.hide_filament_types = [fil.strip() for fil in hide_filament_types.split(',')]
 
     def _handle_ready(self):
         self.zmod = self.printer.lookup_object('zmod', None)
@@ -743,9 +748,12 @@ class zmod_color:
 
     def get_status(self, eventtime):
         return {
-            'tool_id': self.active_tool_id,
+            'active_tool_id': self.active_tool_id,
             'total_tools': self.color_limit,
-            'tool_name': self.active_tool_name
+            'display': self.display,
+            'color_limit': self.color_limit,
+            'valid_types': list(self.valid_types),
+            'hidden_types': list(self.hide_filament_types)
         }
 
     def _get_active_extruder(self, gcmd):
@@ -776,7 +784,6 @@ class zmod_color:
         # Все дома, голова пуста
         if len(not_home_indices) == 0 and len(on_head_indices) == 0:
             self.active_tool_id = -1
-            self.active_tool_name = "None"
             gcmd.respond_raw(f"// Head: -1")
             return -1
 
@@ -784,16 +791,13 @@ class zmod_color:
         if len(not_home_indices) == 1 and len(on_head_indices) == 1:
             if not_home_indices[0] == on_head_indices[0]:
                 self.active_tool_id = not_home_indices[0]
-                self.active_tool_name = f"extruder{self.active_tool_id if self.active_tool_id > 0 else ''}"
                 gcmd.respond_raw(f"// Head: T{not_home_indices[0]}")
                 return not_home_indices[0]
             else:
                 self.active_tool_id = -2
-                self.active_tool_name = "Error"
                 raise gcmd.error(f"Рассинхрон датчиков: Экструдер {not_home_indices[0]} не дома, но датчик головы видит Экструдер {on_head_indices[0]}!")
 
         self.active_tool_id = -2
-        self.active_tool_name = "Error"
 
         raise gcmd.error(f"Ошибка датчиков: Не дома {not_home_indices}. На голове: {on_head_indices}.")
 
@@ -925,14 +929,12 @@ class zmod_color:
         if active_t != -1:
             if silent == 0:
                 self.active_tool_id = -2
-                self.active_tool_name = "Error"
                 raise gcmd.error(f"Невозможно взять T{t_index}. Каретка занята экструдером T{active_t}! Сначала вызовите _T_OUT.")
             else:
                 self.cmd_T_OUT(gcmd)
                 active_t = self._get_active_extruder(gcmd)
                 if active_t != -1:
                     self.active_tool_id = -2
-                    self.active_tool_name = "Error"
                     raise gcmd.error(f"Невозможно взять T{t_index}. Каретка занята экструдером T{active_t}! Сначала вызовите _T_OUT.")
 
         if 'z' not in homed_axes:
@@ -1026,7 +1028,6 @@ class zmod_color:
         active_t = self._get_active_extruder(gcmd)
         if active_t != t_index:
             self.active_tool_id = -2
-            self.active_tool_name = "Error"
             raise gcmd.error(f"Неверный экструдер в голове. Должен быть T{t_index} != T{active_t}")
 
     # Вернуть экструдер на место
@@ -1119,7 +1120,6 @@ class zmod_color:
         active_t = self._get_active_extruder(gcmd)
         if active_t != -1:
             self.active_tool_id = -2
-            self.active_tool_name = "Error"
             raise gcmd.error(f"Экструдер T{active_t} не снят с головы. ")
 
         # Восстановление физических координат
@@ -1127,7 +1127,6 @@ class zmod_color:
             self.gcode.run_script_from_command("RESTORE_GCODE_STATE NAME=_T_TOOL_STATE MOVE=1 MOVE_SPEED=100")
 
             self.active_tool_id = -1
-            self.active_tool_name = "None"
 
     def cmd_GET_ZCOLOR(self, gcmd):
         silent = gcmd.get_int('SILENT', 0)
@@ -1923,8 +1922,11 @@ class zmod_color:
             gcmd.respond_raw(f"// action:prompt_text {self._t('spool_info', zslot, '', color_name)}")
             gcmd.respond_raw("// action:prompt_button_group_start")
             counter = 0
-            total_materials = len(self.valid_types) - 1  # Исключаем '?'
-            for material in self.valid_types[:-1]:  # Исключаем '?'
+
+            display_types = [fil for fil in self.valid_types if fil not in self.hide_filament_types]
+
+            total_materials = len(display_types) - 1  # Исключаем '?'
+            for material in display_types[:-1]:  # Исключаем '?'
                 gcmd.respond_raw(
                     f"// action:prompt_button {material}|"
                     f"CHANGE_ZCOLOR SLOT={zslot} TYPE={material} HEX={zhex}|primary|{zhex}"
