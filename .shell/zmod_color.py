@@ -680,7 +680,7 @@ class zmod_color:
         return "Not found"
 
     def get_current_channel(self):
-        return self._get_active_extruder(None)
+        return self._get_active_extruder(None)+1
 
     def zsend_post_request(self, api, payload=None, send_data=None):
         base_ip = self.get_printer_ip()
@@ -1225,7 +1225,7 @@ class zmod_color:
                     if self.get_current_channel() == int(slot['ID']):
                         prompt_text = f"Extruder: T{slot['ID']}: {slot['Material']}/{slot['Color']}"
                         if silent == 0:
-                            button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_IFS_REMOVE_CURRENT_PRUTOK|primary|{slot['HEX']}"
+                            button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_T_OUT|primary|{slot['HEX']}"
                         break
 
             if silent == 0:
