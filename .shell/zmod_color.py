@@ -817,6 +817,9 @@ class zmod_color:
             'hidden_types': list(self.hide_filament_types)
         }
 
+    def get_extruder_sensor(self)
+        return self._get_active_extruder(None) >= 0
+
     def _get_active_extruder(self, gcmd):
         not_home_indices = []
         on_head_indices = []
@@ -1216,14 +1219,14 @@ class zmod_color:
 
             prompt_text = f"Extruder: None ({self.get_current_channel()})"
             button_text = ""
-            #if self.get_extruder_sensor() and not self.display:
-            #    prompt_text = f"Extruder: {self.get_current_channel()}"
-            #    for slot in result:
-            #        if self.get_current_channel() == int(slot['ID']):
-            #            prompt_text = f"Extruder: {slot['ID']}: {slot['Material']}/{slot['Color']}"
-            #            if silent == 0:
-            #                button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_IFS_REMOVE_CURRENT_PRUTOK|primary|{slot['HEX']}"
-            #            break
+            if self.get_extruder_sensor() and not self.display:
+                prompt_text = f"Extruder: T{self.get_current_channel()}"
+                for slot in result:
+                    if self.get_current_channel() == int(slot['ID']):
+                        prompt_text = f"Extruder: T{slot['ID']}: {slot['Material']}/{slot['Color']}"
+                        if silent == 0:
+                            button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_IFS_REMOVE_CURRENT_PRUTOK|primary|{slot['HEX']}"
+                        break
 
             if silent == 0:
                 gcmd.respond_raw(f"// action:prompt_text {prompt_text}")
@@ -1536,12 +1539,12 @@ class zmod_color:
                 gcmd.respond_raw("// action:prompt_end")
                 gcmd.respond_raw(f"// action:prompt_begin {self._t('prompt_material')}")
                 prompt_text = f"Extruder: None ({self.get_current_channel()})"
-                #if self.get_extruder_sensor():
-                #    prompt_text = f"Extruder: {self.get_current_channel()}"
-                #    for slot in result:
-                #        if self.get_current_channel() == int(slot['ID']):
-                #            prompt_text = f"Extruder: {slot['ID']}: {slot['Material']}/{slot['Color']}"
-                #            break
+                if self.get_extruder_sensor():
+                    prompt_text = f"Extruder: T{self.get_current_channel()}"
+                    for slot in result:
+                        if self.get_current_channel() == int(slot['ID']):
+                            prompt_text = f"Extruder: T{slot['ID']}: {slot['Material']}/{slot['Color']}"
+                            break
 
                 gcmd.respond_raw(f"// action:prompt_text {fname} | {prompt_text}")
 
@@ -1761,9 +1764,9 @@ class zmod_color:
             current_spool_number = self.get_current_channel()
 
             full_color_change = True
-            #if self.get_extruder_sensor() and spool_number == current_spool_number:
-            #    if self.save_variables.get('always_full_color_change', 0) == 0:
-            #        full_color_change = False
+            if self.get_extruder_sensor() and spool_number == current_spool_number:
+                if self.save_variables.get('always_full_color_change', 0) == 0:
+                    full_color_change = False
 
             if full_color_change:
                 self.gcode.run_script_from_command(f"INSERT_PRUTOK_IFS PRUTOK={spool_number} NEED_STOP=0 TRASH=0")
