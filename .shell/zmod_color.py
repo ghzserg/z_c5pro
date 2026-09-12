@@ -680,13 +680,7 @@ class zmod_color:
         return "Not found"
 
     def get_current_channel(self):
-        with open(FFCONFIG + 'extruder.json', 'r') as file:
-            raw = file.read()
-            clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
-            config = json.loads(clean)
-            prutok = int(config.get("now_extruder", -1))+1
-            return prutok
-        return 0
+        return self._get_active_extruder(None)
 
     def zsend_post_request(self, api, payload=None, send_data=None):
         base_ip = self.get_printer_ip()
@@ -725,6 +719,73 @@ class zmod_color:
                 return None, response_json
         except requests.exceptions.RequestException as e:
             return None, str(e)
+
+    def get_printer_data_detail(self):
+        response_data = {
+            "detail": {
+                "hasMatlStation": False,
+                "indepMatlInfo": {
+                    },
+                "matlStationInfo": {
+                    "slotInfos": []
+                }
+            }
+        }
+
+
+        try:
+            with open(FFCONFIG + 'filament.json', 'r') as file:
+                raw = file.read()
+                clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
+                filament_cfg = json.loads(clean)
+        except Exception:
+            filament_cfg = {}
+
+        response_data["detail"]["hasMatlStation"] = True
+        # Динамическое получение упорядоченного списка HEX-ключей из self.COLOR_MAPPING
+        available_hex_keys = list(self.COLOR_MAPPING.keys())
+
+        for i in range(self.color_limit):
+            prefix = f"ex{i}_"
+
+            # Определение типа пластика по индексу из self.valid_types
+            type_idx = filament_cfg.get(prefix + "filament_type", 0)
+            if isinstance(type_idx, int) and 0 <= type_idx < len(self.valid_types):
+                mat_name = self.valid_types[type_idx]
+            else:
+                mat_name = "PLA"
+
+            if mat_name == '?':
+                mat_name = 'PLA'
+
+            # Определение HEX-кода цвета по индексу из файла локализации
+            color_idx = filament_cfg.get(prefix + "filament_color", 0)
+            if isinstance(color_idx, int) and 0 <= color_idx < len(available_hex_keys):
+                hex_color = "#" + available_hex_keys[color_idx].upper()
+            else:
+                hex_color = "#FFFFFF"
+
+            try:
+                has_filament = self.zmod_ifs.get_port(i + 1)
+            except Exception:
+                has_filament = True
+
+            slot = {
+                "slotId": str(i + 1),
+                "materialName": mat_name,
+                "materialColor": hex_color,
+                "hasFilament": has_filament
+            }
+            response_data["detail"]["matlStationInfo"]["slotInfos"].append(slot)
+
+        if response_data["detail"]["matlStationInfo"]["slotInfos"]:
+            first_slot = response_data["detail"]["matlStationInfo"]["slotInfos"][0]
+            response_data["detail"]["indepMatlInfo"] = {
+                "materialName": first_slot["materialName"],
+                "materialColor": first_slot["materialColor"]
+            }
+
+        return 200,response_data
 
     def _t(self, key, *args):
         return TRANSLATIONS[self.lang][key].format(*args)
@@ -777,29 +838,38 @@ class zmod_color:
                     on_head_indices.append(i)
 
         if len(not_home_indices) > 1:
-            raise gcmd.error(f"Больше 1 экструдера не дома! {not_home_indices}")
+            if gcmd:
+                raise gcmd.error(f"Больше 1 экструдера не дома! {not_home_indices}")
+            return -2
         if len(on_head_indices) > 1:
-            raise gcmd.error(f"Больше 1 экструдера на голове! {on_head_indices}")
+            if gcmd:
+                raise gcmd.error(f"Больше 1 экструдера на голове! {on_head_indices}")
+            return -2
 
         # Все дома, голова пуста
         if len(not_home_indices) == 0 and len(on_head_indices) == 0:
             self.active_tool_id = -1
-            gcmd.respond_raw(f"// Head: -1")
+            if gcmd:
+                gcmd.respond_raw(f"// Head: -1")
             return -1
 
         # Если один не дома, и именно он на голове — возвращаем его номер (0-3)
         if len(not_home_indices) == 1 and len(on_head_indices) == 1:
             if not_home_indices[0] == on_head_indices[0]:
                 self.active_tool_id = not_home_indices[0]
-                gcmd.respond_raw(f"// Head: T{not_home_indices[0]}")
+                if gcmd:
+                    gcmd.respond_raw(f"// Head: T{not_home_indices[0]}")
                 return not_home_indices[0]
             else:
                 self.active_tool_id = -2
-                raise gcmd.error(f"Рассинхрон датчиков: Экструдер {not_home_indices[0]} не дома, но датчик головы видит Экструдер {on_head_indices[0]}!")
+                if gcmd:
+                    raise gcmd.error(f"Рассинхрон датчиков: Экструдер {not_home_indices[0]} не дома, но датчик головы видит Экструдер {on_head_indices[0]}!")
+                return -2
 
         self.active_tool_id = -2
-
-        raise gcmd.error(f"Ошибка датчиков: Не дома {not_home_indices}. На голове: {on_head_indices}.")
+        if gcmd:
+            raise gcmd.error(f"Ошибка датчиков: Не дома {not_home_indices}. На голове: {on_head_indices}.")
+        return -2
 
     def cmd_T_STATUS(self, gcmd):
         self._get_active_extruder(gcmd)

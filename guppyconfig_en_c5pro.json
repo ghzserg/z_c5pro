@@ -14,10 +14,6 @@
       },
       "fans": [
         {
-          "display_name": "M106",
-          "id": "fan_generic fanM106"
-        },
-        {
           "display_name": "Chamber Fan",
           "id": "fan_generic chamber_fan"
         },
@@ -32,6 +28,10 @@
         {
           "display_name": "Chamber Cool",
           "id": "fan_generic chamber_cool_fan"
+        },
+        {
+          "display_name": "M106",
+          "id": "fan_generic fanM106"
         }
       ],
       "leds": null,
