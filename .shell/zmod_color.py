@@ -817,7 +817,7 @@ class zmod_color:
             'hidden_types': list(self.hide_filament_types)
         }
 
-    def get_extruder_sensor(self)
+    def get_extruder_sensor(self):
         return self._get_active_extruder(None) >= 0
 
     def _get_active_extruder(self, gcmd):
