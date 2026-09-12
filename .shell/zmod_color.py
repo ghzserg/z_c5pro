@@ -662,6 +662,10 @@ class zmod_color:
         self.home_objs = [self.printer.lookup_object(f"gcode_button {b}", None) for b in self.home_buttons]
         self.grab_objs = [self.printer.lookup_object(f"gcode_button {b}", None) for b in self.grab_buttons]
 
+        # Инициализация датчиков наличия и движения филамента для ex0-ex3
+        self.fd_sensors = [self.printer.lookup_object(f"filament_switch_sensor fd_ex{i}", None) for i in range(4)]
+        self.fm_sensors = [self.printer.lookup_object(f"filament_motion_sensor fm_ex{i}", None) for i in range(4)]
+
     def get_display(self):
         return self.display
 
@@ -732,6 +736,7 @@ class zmod_color:
             }
         }
 
+        cmd_time = self.printer.get_reactor().monotonic()
 
         try:
             with open(FFCONFIG + 'filament.json', 'r') as file:
@@ -765,10 +770,13 @@ class zmod_color:
             else:
                 hex_color = "#FFFFFF"
 
-            try:
-                has_filament = self.zmod_ifs.get_port(i + 1)
-            except Exception:
-                has_filament = True
+            # Получение статуса из filament_switch_sensor fd_exX
+            has_filament = True
+            if i < len(self.fd_sensors) and self.fd_sensors[i] is not None:
+                try:
+                    has_filament = bool(self.fd_sensors[i].get_status(cmd_time).get('filament_detected', False))
+                except Exception:
+                    pass
 
             slot = {
                 "slotId": str(i + 1),
