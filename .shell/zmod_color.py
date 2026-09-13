@@ -728,7 +728,7 @@ class zmod_color:
             default_filament = existing_file_data['default']
             required_new_params = ['temp', 'temp_manual', 'temp_wait', 'filament_tube_length', 'filament_drop_length', 'trash_x', 'trash_y']
             if all(param in default_filament for param in required_new_params):
-            return existing_file_data
+                return existing_file_data
         else:
             default_filament = DEFAULT_FILAMENT_SETTINGS.copy()
 
