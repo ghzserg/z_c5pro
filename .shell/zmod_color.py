@@ -866,9 +866,6 @@ class zmod_color:
             pass
         return None
 
-    def get_display(self):
-        return self.display
-
     def get_printer_ip(self):
         interfaces = ['wlan0']
         for iface in interfaces:
@@ -1437,7 +1434,7 @@ class zmod_color:
 
             prompt_text = f"Extruder: None ({self.get_current_channel()})"
             button_text = ""
-            if self.get_extruder_sensor() and not self.display:
+            if self.get_extruder_sensor():
                 prompt_text = f"Extruder: {self.get_current_channel()}"
                 for slot in result:
                     if self.get_current_channel() == int(slot['ID']):
