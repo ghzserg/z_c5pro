@@ -8,7 +8,6 @@ import chelper
 
 VALID_GCODE_EXTS = {'gcode', 'g', 'gco', 'gx'}
 VALID_GCODE_T = frozenset([b'T0', b'T1', b'T2', b'T3'])
-VALID_GCODE_T_TUPLE = (b'T0', b'T1', b'T2', b'T3')
 VALID_M104_T = frozenset(['M104', 'M109'])
 EXTRUDER_COUNT = 4
 
@@ -480,8 +479,8 @@ class VirtualSD:
                     if match:
                         self.pretemp = int(match.group(1))
                         self.has_preheat = True
-            if line.startswith(VALID_GCODE_T_TUPLE):
-                remapped = self._remap_head(line[:2])
+            if line in VALID_GCODE_T:
+                remapped = self._remap_head(line)
                 # Collect the (remapped) head used in the model
                 if remapped not in self.heater_head:
                     self.heater_head.append(remapped)
@@ -531,8 +530,8 @@ class VirtualSD:
                         if match:
                             self.pretemp = int(match.group(1))
                             self.has_preheat = True
-                if line.startswith(VALID_GCODE_T_TUPLE):
-                    remapped = self._remap_head(line[:2])
+                if line in VALID_GCODE_T:
+                    remapped = self._remap_head(line)
                     if remapped not in self.heater_head:
                         self.heater_head.append(remapped)
                     if self.find_flag == FIND_ONE:
@@ -608,8 +607,8 @@ class VirtualSD:
                     if match:
                         self.pretemp = int(match.group(1))
                         self.has_preheat = True
-            if line.startswith(VALID_GCODE_T_TUPLE):
-                remapped = self._remap_head(line[:2])
+            if line in VALID_GCODE_T:
+                remapped = self._remap_head(line)
                 if remapped not in self.heater_head:
                     self.heater_head.append(remapped)
                 if self.find_flag == FIND_ONE:
@@ -812,18 +811,15 @@ class VirtualSD:
                         exclude_line = exclude_line.replace("EXCLUDE_OBJECT_END", "EXCLUDE_OBJECT_START")
                         self.gcode.run_script(exclude_line)
 
-                if line.startswith(VALID_GCODE_T_TUPLE):
+                if line.startswith(b"T") and line in VALID_GCODE_T:
                     # fp add for preheat
-                    self.find_next_active_channel(seek_pos, lines, partial_input, line[:2])
+                    self.find_next_active_channel(seek_pos, lines, partial_input, line)
                     # end
-                    self.print_channel = int(line[1:2].decode())
+                    self.print_channel = int(line[1:].decode())
                     if self.print_channel != self.load_channel:
                         self.gcode.run_script("M400")
                         self.change_filament = True
                         self.doingChangeEx = True
-                        # zmod 1.12
-                        self.gcode.run_script(f"_A_CHANGE_FILAMENT T={self.print_channel}")
-                        # end
                         while self.change_filament:
                             self.reactor.pause(self.reactor.monotonic() + 0.05)
                         self.gcode.run_script(self.set_velocity_limit)

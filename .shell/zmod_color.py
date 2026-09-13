@@ -2277,6 +2277,11 @@ class zmod_color:
         if napr not in (0, 1):
             raise gcmd.error(self._t('error_napr'))
 
+        move_status = self.gcode_move.get_status(self.printer.get_reactor().monotonic())
+        is_absolute = move_status.get('absolute_coordinates', True)
+        if not is_absolute:
+            self.gcode.run_script_from_command("G90")
+
         script = [
             f"_T_IN T={zslot-1}",
             "G1 X250 F12000",
@@ -2307,6 +2312,9 @@ class zmod_color:
                 "_T_OUT"
             ]
             self.gcode.run_script_from_command("\n".join(script))
+
+        if not is_absolute:
+            self.gcode.run_script_from_command("G91")
 
         if nocolor == 0:
             self.gcode.run_script_from_command("COLOR")
