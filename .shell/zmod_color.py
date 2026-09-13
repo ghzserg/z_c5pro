@@ -697,7 +697,7 @@ class zmod_color:
         return "Not found"
 
     def get_current_channel(self):
-        return self._get_active_extruder(None)
+        return self._get_active_extruder(None)+1
 
     def zsend_post_request(self, api, payload=None, send_data=None):
         base_ip = self.get_printer_ip()
@@ -1251,10 +1251,10 @@ class zmod_color:
             prompt_text = f"Extruder: None ({self.get_current_channel()})"
             button_text = ""
             if self.get_extruder_sensor() and not self.display:
-                prompt_text = f"Extruder: T{self.get_current_channel()}"
+                prompt_text = f"Extruder: {self.get_current_channel()}"
                 for slot in result:
-                    if self.get_current_channel() + 1 == int(slot['ID']):
-                        prompt_text = f"Extruder: T{self.get_current_channel()}: {slot['Material']}/{slot['Color']}"
+                    if self.get_current_channel() == int(slot['ID']):
+                        prompt_text = f"Extruder: {self.get_current_channel()}: {slot['Material']}/{slot['Color']}"
                         if silent == 0:
                             button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_T_OUT_ZCOLOR|primary|{slot['HEX']}"
                         break
@@ -1571,10 +1571,10 @@ class zmod_color:
                 gcmd.respond_raw(f"// action:prompt_begin {self._t('prompt_material')}")
                 prompt_text = f"Extruder: None ({self.get_current_channel()})"
                 if self.get_extruder_sensor():
-                    prompt_text = f"Extruder: T{self.get_current_channel()}"
+                    prompt_text = f"Extruder: {self.get_current_channel()}"
                     for slot in result:
-                        if self.get_current_channel() + 1 == int(slot['ID']):
-                            prompt_text = f"Extruder: T{self.get_current_channel()}: {slot['Material']}/{slot['Color']}"
+                        if self.get_current_channel() == int(slot['ID']):
+                            prompt_text = f"Extruder: {self.get_current_channel()}: {slot['Material']}/{slot['Color']}"
                             break
 
                 gcmd.respond_raw(f"// action:prompt_text {fname} | {prompt_text}")
@@ -1792,7 +1792,7 @@ class zmod_color:
                 return
 
             spool_number = mapping[channel]
-            current_spool_number = self.get_current_channel() + 1
+            current_spool_number = self.get_current_channel()
 
             full_color_change = True
             if self.get_extruder_sensor() and spool_number == current_spool_number:
@@ -2067,7 +2067,7 @@ class zmod_color:
             self.gcode.run_script_from_command(f"_T_IN T={zslot-1}")
         else:
             self.gcode.run_script_from_command(f"_T_IN T={zslot-1}")
-        gcmd.respond_raw("COLOR")
+        self.gcode.run_script_from_command(f"COLOR")
 
 def load_config(config):
     return zmod_color(config)
