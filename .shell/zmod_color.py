@@ -621,13 +621,8 @@ class zmod_color:
 
         self.display = config.getboolean('display', True)
         self.lang = 'en'
-        self.valid_types = [
-                'PLA', 'PETG', 'PLA-CF', 'PETG-CF', 'ABS', 'ASA', 'SILK',
-                'PET-CF', 'PAHT-CF', 'S-PAHT', 'S-Multi', 'PA-CF', 'HIPS',
-                'PVA', 'TPU-90A', 'TPU-95A', 'TPU-64D', '?'
-            ]
 
-        self.temp_defaults = {
+        temp_defaults = {
             "PLA":      {"temp": 220, "temp_manual": 250, "temp_wait": 120},
             "PETG":     {"temp": 240, "temp_manual": 270, "temp_wait": 140},
             "PLA-CF":   {"temp": 220, "temp_manual": 250, "temp_wait": 120},
@@ -645,6 +640,20 @@ class zmod_color:
             "TPU-95A":  {"temp": 220, "temp_manual": 250, "temp_wait": 120},
             "TPU-64D":  {"temp": 220, "temp_manual": 250, "temp_wait": 120}
         }
+
+        for option in config.get_prefix_options('filament_'):
+            filament_type = option[len('filament_'):].upper()
+            try:
+                temp = config.getint(option)
+                temp_defaults[filament_type] = {
+                    "temp": temp,
+                    "temp_manual": temp + 30,
+                    "temp_wait": temp - 100
+                }
+            except Exception:
+                pass
+        self.temp_defaults = temp_defaults
+        self.valid_types = list(self.temp_defaults.keys()) + ['?']
 
         self.gcode = self.printer.lookup_object('gcode')
         self.gcode.register_command('GET_ZCOLOR', self.cmd_GET_ZCOLOR)
@@ -723,32 +732,36 @@ class zmod_color:
         except (FileNotFoundError, json.JSONDecodeError):
             pass
 
+        # Проверяем, содержит ли файл секцию 'default'
         has_default = 'default' in existing_file_data
+
         if has_default:
-            default_filament = existing_file_data['default']
+            default_settings = existing_file_data['default']
             required_new_params = ['temp', 'temp_manual', 'temp_wait', 'filament_tube_length', 'filament_drop_length', 'trash_x', 'trash_y']
-            if all(param in default_filament for param in required_new_params):
+            all_new_params_exist = all(param in default_settings for param in required_new_params)
+            if all_new_params_exist:
                 return existing_file_data
+            default_filament = default_settings
         else:
             default_filament = DEFAULT_FILAMENT_SETTINGS.copy()
 
-        default_filament['temp'] = default_filament.get('temp', 240)
-        default_filament['temp_manual'] = default_filament.get('temp_manual', 230)
-        default_filament['temp_wait'] = default_filament.get('temp_wait', 150)
-        default_filament['filament_tube_length'] = 295
-        default_filament['filament_drop_length'] = 50
-        default_filament['trash_x'] = 275.0
-        default_filament['trash_y'] = 254.0
+        # Накатываем новые дефолты на секцию default, если их там не было
+        for key, val in DEFAULT_FILAMENT_SETTINGS.items():
+            if key not in default_filament:
+                default_filament[key] = val
 
         data = {'default': default_filament}
         for filament_name in existing_file_data:
             if filament_name == 'default':
                 continue
+
             new_filament = existing_file_data[filament_name].copy()
             fil_defaults = self.temp_defaults.get(filament_name, default_filament)
-            for key in NO_EXCLUDE_FIELDS:
+
+            # Проверяем наличие всех параметров для конкретного профиля
+            for key in DEFAULT_FILAMENT_SETTINGS.keys():
                 if key not in new_filament:
-                    new_filament[key] = fil_defaults.get(key, default_filament.get(key, DEFAULT_FILAMENT_SETTINGS[key]))
+                    new_filament[key] = fil_defaults.get(key, default_filament[key])
             data[filament_name] = new_filament
 
         return self.save_filament_json(data, True)
@@ -763,7 +776,9 @@ class zmod_color:
             except (FileNotFoundError, json.JSONDecodeError):
                 existing_file_data = {}
 
-        new_data = {'default': data['default'].copy()}
+        new_data = {}
+        new_data['default'] = data['default'].copy()
+
         for filament_name in data.keys():
             if filament_name == 'default':
                 continue
@@ -779,7 +794,8 @@ class zmod_color:
                     new_filament[key] = this_filament[key]
                 for key in NO_EXCLUDE_FIELDS:
                     if key not in new_filament:
-                        new_filament[key] = data[filament_name][key]
+                        if key in data[filament_name]:
+                            new_filament[key] = data[filament_name][key]
             new_data[filament_name] = new_filament
 
         with open(TYPECONFIG, 'w') as f:
