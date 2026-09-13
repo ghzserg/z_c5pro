@@ -763,11 +763,10 @@ class zmod_color:
             data[filament_name] = new_filament
 
         # Вызываем сохранение с флагом полной перезаписи структуры (cleanup=True)
-        return save_filament_json(data, cleanup=True)
+        return self.save_filament_json(data, cleanup=True)
 
-    def save_filament_json(self, data, cleanup=False):
-        # Modified save routine to not double-up on most parameters if they're identical to default.
-
+    def save_filament_json(data, cleanup=False):
+        """Оригинальная очищающая функция сохранения"""
         if cleanup:
             existing_file_data = {}
         else:
@@ -777,12 +776,9 @@ class zmod_color:
             except (FileNotFoundError, json.JSONDecodeError):
                 existing_file_data = {}
 
-        # Deep copy list, with default first
         new_data = {}
         new_data['default'] = data['default'].copy()
 
-        # For filaments that didn't already exist, or if cleanup, write all values that don't match default or are in NO_EXCLUDE_FIELDS
-        # For filaments that do already exist, keep existing values from file + add any that are in NO_EXCLUDE_FIELDS
         for filament_name in data.keys():
             if filament_name == 'default':
                 continue
@@ -798,7 +794,8 @@ class zmod_color:
                     new_filament[key] = this_filament[key]
                 for key in NO_EXCLUDE_FIELDS:
                     if key not in new_filament:
-                        new_filament[key] = data[filament_name][key]
+                        if key in data[filament_name]:
+                            new_filament[key] = data[filament_name][key]
             new_data[filament_name] = new_filament
 
         with open(TYPECONFIG, 'w') as f:
