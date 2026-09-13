@@ -651,6 +651,7 @@ class zmod_color:
 
         self.virtual_sd = self.printer.lookup_object('virtual_sdcard')
         self.gcode_move = self.printer.lookup_object('gcode_move', None)
+        self.bed_mesh = self.printer.lookup_object('bed_mesh', None)
         self.door_obj = self.printer.lookup_object("gcode_button frontDoor", None)
         self.top_obj = self.printer.lookup_object("gcode_button topDoor", None)
         self.toolhead = self.printer.lookup_object('toolhead')
@@ -666,6 +667,17 @@ class zmod_color:
         # Инициализация датчиков наличия и движения филамента для ex0-ex3
         self.fd_sensors = [self.printer.lookup_object(f"filament_switch_sensor fd_ex{i}", None) for i in range(4)]
         self.fm_sensors = [self.printer.lookup_object(f"filament_motion_sensor fm_ex{i}", None) for i in range(4)]
+
+    def _get_active_mesh_profile(self):
+        try:
+            if self.bed_mesh is not None:
+                status = self.bed_mesh.get_status(self.printer.get_reactor().monotonic())
+                profile_name = status.get('profile_name', '')
+                if profile_name:
+                    return profile_name
+        except Exception:
+            pass
+        return None
 
     def get_display(self):
         return self.display
@@ -1176,6 +1188,10 @@ class zmod_color:
             current_z = move_status.get('gcode_position', [0, 0, 0])[2]
             if current_z < 10.0:
                 self.gcode.run_script_from_command("G1 Z10.000 F6000\nM400")
+        else:
+            active_mesh = self._get_active_mesh_profile()
+            if active_mesh:
+                self.gcode.run_script_from_command("BED_MESH_CLEAR FROM=_T_OUT")
 
         # Вычисляем промежуточную точку входа (X_park - 10)
         park_x_minus_10 = park_x - 10.0
@@ -1201,6 +1217,9 @@ class zmod_color:
 
         if 'z' in homed_axes:
             self.gcode.run_script_from_command("SET_GCODE_OFFSET Z=0 MOVE=1 MOVE_SPEED=100 FROM=_T_OUT\nM400")
+        else:
+            if active_mesh:
+                self.gcode.run_script_from_command(f"BED_MESH_PROFILE LOAD={active_mesh} FROM=_T_OUT")
 
         active_t = self._get_active_extruder(gcmd)
         if active_t != -1:
@@ -2045,9 +2064,9 @@ class zmod_color:
             raise gcmd.error(self._t('error_napr'))
 
         if napr == 0:
-            self.gcode.run_script_from_command(f"_T_IN T{zslot}")
+            self.gcode.run_script_from_command(f"_T_IN T={zslot}")
         else:
-            self.gcode.run_script_from_command(f"_T_IN T{zslot}")
+            self.gcode.run_script_from_command(f"_T_IN T={zslot}")
 
 def load_config(config):
     return zmod_color(config)
