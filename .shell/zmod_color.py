@@ -2246,13 +2246,13 @@ class zmod_color:
             "G1 X250 F12000",
             f"G1 Y{slot_config.get('trash_y'):.3f} F24000",
             f"G1 X{slot_config.get('trash_x'):.3f} F2400",
-            "M400",
-            f""
+            "M400"
         ]
 
         self.gcode.run_script_from_command("\n".join(script))
 
         if napr == 1: # Загрузить
+            self.gcode.run_script_from_command("_WAIT_TEMP T={zslot-1} EXTRUDER_TEMP={slot_config.get('temp_manual'):.3f} BED_TEMP=0 FROM=_T_IN_ZCOLOR")
             if slot_config.get('filament_tube_length')>150.0:
                 script = [
                     "G92 E0",
@@ -2267,6 +2267,7 @@ class zmod_color:
             script = [
                 f"G1 E{tube:.3f} F240",
                 "M400",
+                f"M104 S{slot_config.get('temp_wait'):.3f} T{zslot-1}"
                 "_T_OUT"
             ]
             self.gcode.run_script_from_command("\n".join(script))
