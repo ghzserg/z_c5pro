@@ -732,39 +732,38 @@ class zmod_color:
         except (FileNotFoundError, json.JSONDecodeError):
             pass
 
-        # Проверяем, содержит ли файл секцию 'default'
-        has_default = 'default' in existing_file_data
-
-        if has_default:
-            default_settings = existing_file_data['default']
-            required_new_params = ['temp', 'temp_manual', 'temp_wait', 'filament_tube_length', 'filament_drop_length', 'trash_x', 'trash_y']
-            all_new_params_exist = all(param in default_settings for param in required_new_params)
-            if all_new_params_exist:
-                return existing_file_data
-            default_filament = default_settings
+        # Извлекаем или создаем базовый default
+        if 'default' in existing_file_data:
+            default_filament = existing_file_data['default']
         else:
             default_filament = DEFAULT_FILAMENT_SETTINGS.copy()
 
-        # Накатываем новые дефолты на секцию default, если их там не было
+        # Заполняем пропущенные поля в default
         for key, val in DEFAULT_FILAMENT_SETTINGS.items():
             if key not in default_filament:
                 default_filament[key] = val
 
         data = {'default': default_filament}
-        for filament_name in existing_file_data:
-            if filament_name == 'default':
+
+        # Объединяем существующие в файле типы и системные дефолты
+        all_filament_types = set(existing_file_data.keys()) | set(TEMP_DEFAULTS.keys())
+
+        for filament_name in all_filament_types:
+            if filament_name == 'default' or filament_name == '?':
                 continue
 
-            new_filament = existing_file_data[filament_name].copy()
-            fil_defaults = self.temp_defaults.get(filament_name, default_filament)
+            # Берем старый профиль из файла, если он был, иначе пустой словарь
+            new_filament = existing_file_data.get(filament_name, {}).copy()
+            fil_defaults = TEMP_DEFAULTS.get(filament_name, default_filament)
 
-            # Проверяем наличие всех параметров для конкретного профиля
+            # Проверяем наличие абсолютно всех параметров для профиля
             for key in DEFAULT_FILAMENT_SETTINGS.keys():
                 if key not in new_filament:
                     new_filament[key] = fil_defaults.get(key, default_filament[key])
             data[filament_name] = new_filament
 
-        return self.save_filament_json(data, True)
+        # Вызываем сохранение с флагом полной перезаписи структуры (cleanup=True)
+        return save_filament_json(data, cleanup=True)
 
     def save_filament_json(self, data, cleanup=False):
         # Modified save routine to not double-up on most parameters if they're identical to default.
