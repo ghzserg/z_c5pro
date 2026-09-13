@@ -811,7 +811,9 @@ class zmod_color:
             new_profile = data['default'].copy()
             new_profile.update(self.temp_defaults[filament_type])
             data[filament_type] = new_profile
-        config = data.get(filament_type, data['default']).copy()
+        config = data.get('default', DEFAULT_FILAMENT_SETTINGS).copy()
+        config.update(data.get(filament_type, {}))
+
         config['filament_type'] = filament_type
         return config
 
