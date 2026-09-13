@@ -746,7 +746,7 @@ class zmod_color:
         data = {'default': default_filament}
 
         # Объединяем существующие в файле типы и системные дефолты
-        all_filament_types = set(existing_file_data.keys()) | set(TEMP_DEFAULTS.keys())
+        all_filament_types = set(existing_file_data.keys()) | set(self.temp_defaults.keys())
 
         for filament_name in all_filament_types:
             if filament_name == 'default' or filament_name == '?':
@@ -754,7 +754,7 @@ class zmod_color:
 
             # Берем старый профиль из файла, если он был, иначе пустой словарь
             new_filament = existing_file_data.get(filament_name, {}).copy()
-            fil_defaults = TEMP_DEFAULTS.get(filament_name, default_filament)
+            fil_defaults = self.temp_defaults.get(filament_name, default_filament)
 
             # Проверяем наличие абсолютно всех параметров для профиля
             for key in DEFAULT_FILAMENT_SETTINGS.keys():
@@ -765,7 +765,7 @@ class zmod_color:
         # Вызываем сохранение с флагом полной перезаписи структуры (cleanup=True)
         return self.save_filament_json(data, cleanup=True)
 
-    def save_filament_json(data, cleanup=False):
+    def save_filament_json(self, data, cleanup=False):
         """Оригинальная очищающая функция сохранения"""
         if cleanup:
             existing_file_data = {}
