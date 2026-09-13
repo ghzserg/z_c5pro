@@ -1330,7 +1330,7 @@ class zmod_color:
             return
 
         if heater_off == 1:
-            self.gcode.run_script_from_command("M104 S0 T{t_index}")
+            self.gcode.run_script_from_command(f"M104 S0 T{t_index}")
 
         # Логика сохранения состояния
         if save_t == 1:
