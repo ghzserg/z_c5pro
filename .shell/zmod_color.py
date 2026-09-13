@@ -2243,10 +2243,11 @@ class zmod_color:
 
         script = [
             f"_T_IN T={zslot-1}",
-            f"G1 X250 F12000",
+            "G1 X250 F12000",
             f"G1 Y{slot_config.get('trash_y'):.3f} F24000",
             f"G1 X{slot_config.get('trash_x'):.3f} F2400",
-            "M400"
+            "M400",
+            f""
         ]
 
         self.gcode.run_script_from_command("\n".join(script))
@@ -2254,9 +2255,9 @@ class zmod_color:
         if napr == 1: # Загрузить
             if slot_config.get('filament_tube_length')>150.0:
                 script = [
-                    f"G92 E0",
-                    f"G1 E150 F240",
-                    f"M400",
+                    "G92 E0",
+                    "G1 E150 F240",
+                    "M400",
                 ]
                 self.gcode.run_script_from_command("\n".join(script))
                 tube = slot_config.get('filament_tube_length') - 150.0
@@ -2264,12 +2265,12 @@ class zmod_color:
                 tube = slot_config.get('filament_tube_length')
 
             script = [
-                f"G1 E{second:.3f} F240",
-                f"M400",
-                f"_T_OUT"
+                f"G1 E{tube:.3f} F240",
+                "M400",
+                "_T_OUT"
             ]
             self.gcode.run_script_from_command("\n".join(script))
-        self.gcode.run_script_from_command(f"COLOR")
+        self.gcode.run_script_from_command("COLOR")
 
 def load_config(config):
     return zmod_color(config)
