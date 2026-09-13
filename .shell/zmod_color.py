@@ -499,8 +499,8 @@ TRANSLATIONS = {
         'spool': "na bobina",
         'unload_error': "Erro ao descarregar: {}",
         'unload_success': "Descarga iniciada",
-        'unload': "Descarregar"
-        'grab': "Pegar",
+        'unload': "Descarregar",
+        'grab': "Pegar"
     },
     "cs": {
         'auto_assign_no_color_match': "Auto-přiřazení: Nepodařilo se shodovat barvu pro {}",
