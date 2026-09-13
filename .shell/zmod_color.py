@@ -9,7 +9,7 @@ FFCONFIG='/usr/data/firmwareRes/config/'
 FILE_CONFIG='/usr/data/config/mod_data/file.json'
 TYPECONFIG='/usr/data/config/mod_data/filament.json'
 
-NO_EXCLUDE_FIELDS = ['temp', 'temp_manual', 'temp_wait']
+NO_EXCLUDE_FIELDS = ['temp']
 
 DEFAULT_FILAMENT_SETTINGS = {
     "temp": 220,                        # Температура продувки перед печатью (базовая)
@@ -767,7 +767,9 @@ class zmod_color:
         return self.save_filament_json(data, True)
 
     def save_filament_json(self, data, cleanup=False):
-        if cleanup:
+        # Modified save routine to not double-up on most parameters if they're identical to default.
+
+       if cleanup:
             existing_file_data = {}
         else:
             try:
@@ -776,9 +778,12 @@ class zmod_color:
             except (FileNotFoundError, json.JSONDecodeError):
                 existing_file_data = {}
 
+        # Deep copy list, with default first
         new_data = {}
         new_data['default'] = data['default'].copy()
 
+        # For filaments that didn't already exist, or if cleanup, write all values that don't match default or are in NO_EXCLUDE_FIELDS
+        # For filaments that do already exist, keep existing values from file + add any that are in NO_EXCLUDE_FIELDS
         for filament_name in data.keys():
             if filament_name == 'default':
                 continue
@@ -794,8 +799,7 @@ class zmod_color:
                     new_filament[key] = this_filament[key]
                 for key in NO_EXCLUDE_FIELDS:
                     if key not in new_filament:
-                        if key in data[filament_name]:
-                            new_filament[key] = data[filament_name][key]
+                        new_filament[key] = data[filament_name][key]
             new_data[filament_name] = new_filament
 
         with open(TYPECONFIG, 'w') as f:
