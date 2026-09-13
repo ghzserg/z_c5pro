@@ -1248,13 +1248,13 @@ class zmod_color:
 
             result = self.parse_printer_response(response_data)
 
-            prompt_text = f"Extruder: None ({self.get_current_channel()})"
+            prompt_text = f"Extruder: None ({self.get_current_channel()-1})"
             button_text = ""
             if self.get_extruder_sensor() and not self.display:
-                prompt_text = f"Extruder: T{self.get_current_channel()}"
+                prompt_text = f"Extruder: T{self.get_current_channel()-1}"
                 for slot in result:
                     if self.get_current_channel() == int(slot['ID']):
-                        prompt_text = f"Extruder: T{slot['ID']}: {slot['Material']}/{slot['Color']}"
+                        prompt_text = f"Extruder: T{slot['ID']-1}: {slot['Material']}/{slot['Color']}"
                         if silent == 0:
                             button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_T_OUT_ZCOLOR|primary|{slot['HEX']}"
                         break
@@ -1569,12 +1569,12 @@ class zmod_color:
 
                 gcmd.respond_raw("// action:prompt_end")
                 gcmd.respond_raw(f"// action:prompt_begin {self._t('prompt_material')}")
-                prompt_text = f"Extruder: None ({self.get_current_channel()})"
+                prompt_text = f"Extruder: None ({self.get_current_channel()-1})"
                 if self.get_extruder_sensor():
-                    prompt_text = f"Extruder: T{self.get_current_channel()}"
+                    prompt_text = f"Extruder: T{self.get_current_channel()-1}"
                     for slot in result:
                         if self.get_current_channel() == int(slot['ID']):
-                            prompt_text = f"Extruder: T{slot['ID']}: {slot['Material']}/{slot['Color']}"
+                            prompt_text = f"Extruder: T{slot['ID']-1}: {slot['Material']}/{slot['Color']}"
                             break
 
                 gcmd.respond_raw(f"// action:prompt_text {fname} | {prompt_text}")
@@ -2064,9 +2064,10 @@ class zmod_color:
             raise gcmd.error(self._t('error_napr'))
 
         if napr == 0:
-            self.gcode.run_script_from_command(f"_T_IN T={zslot}")
+            self.gcode.run_script_from_command(f"_T_IN T={zslot-1}")
         else:
-            self.gcode.run_script_from_command(f"_T_IN T={zslot}")
+            self.gcode.run_script_from_command(f"_T_IN T={zslot-1}")
+        gcmd.respond_raw("COLOR")
 
 def load_config(config):
     return zmod_color(config)
