@@ -769,7 +769,7 @@ class zmod_color:
     def save_filament_json(self, data, cleanup=False):
         # Modified save routine to not double-up on most parameters if they're identical to default.
 
-       if cleanup:
+        if cleanup:
             existing_file_data = {}
         else:
             try:
