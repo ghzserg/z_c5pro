@@ -610,11 +610,12 @@ class zmod_color:
         self.gcode.register_command('RUN_ZCOLOR', self.cmd_RUN_ZCOLOR)
         self.gcode.register_command('CHANGE_ZCOLOR', self.cmd_CHANGE_ZCOLOR)
 
-        self.gcode.register_command('_T_IN', self.cmd_T_IN)             # Загрузить в голову Tx
-        self.gcode.register_command('_T_OUT', self.cmd_T_OUT)           # Освободить голову
-        self.gcode.register_command('_T_STATUS', self.cmd_T_STATUS)     # Получить статус
-        self.gcode.register_command('_T_G28', self.cmd_T_G28)           # Защищенный G28
-        self.gcode.register_command('_T_RESTORE', self.cmd_T_RESTORE)   # Восстновить сохраненный экструдер
+        self.gcode.register_command('_T_IN', self.cmd_T_IN)               # Загрузить в голову Tx
+        self.gcode.register_command('_T_IN_ZCOLOR', self.cmd_T_IN_ZCOLOR) # Загрузить в голову Tx и выдавать при необходимости
+        self.gcode.register_command('_T_OUT', self.cmd_T_OUT)             # Освободить голову
+        self.gcode.register_command('_T_STATUS', self.cmd_T_STATUS)       # Получить статус
+        self.gcode.register_command('_T_G28', self.cmd_T_G28)             # Защищенный G28
+        self.gcode.register_command('_T_RESTORE', self.cmd_T_RESTORE)     # Восстновить сохраненный экструдер
 
         self.printer.register_event_handler("klippy:ready", self._handle_ready)
 
@@ -946,7 +947,6 @@ class zmod_color:
             self.cmd_T_OUT(gcmd)
 
         if 'z' in params_str:
-            homed_axes = self.toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
             self.gcode.run_script_from_command("G28.1 Z\nM400")
 
     def cmd_T_RESTORE(self, gcmd):
@@ -1114,6 +1114,7 @@ class zmod_color:
     # Вернуть экструдер на место
     def cmd_T_OUT(self, gcmd):
         silent = gcmd.get_int('SILENT', 1)
+        heater_off = gcmd.get_int('HEATER_OFF', 0)
         save_t = gcmd.get_int('SAVE_T', 0)
         save_t_temp = gcmd.get_int('SAVE_T_TEMP', 0)
 
@@ -1128,6 +1129,9 @@ class zmod_color:
             if silent == 0:
                 gcmd.respond_info("Каретка уже пуста, выгрузка не требуется.")
             return
+
+        if heater_off == 1:
+            self.gcode.run_script_from_command("M104 S0 T{t_index}")
 
         # Логика сохранения состояния
         if save_t == 1:
@@ -1233,7 +1237,7 @@ class zmod_color:
                     if self.get_current_channel() == int(slot['ID']):
                         prompt_text = f"Extruder: T{slot['ID']}: {slot['Material']}/{slot['Color']}"
                         if silent == 0:
-                            button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_T_OUT|primary|{slot['HEX']}"
+                            button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_T_OUT_ZCOLOR|primary|{slot['HEX']}"
                         break
 
             if silent == 0:
@@ -1926,6 +1930,15 @@ class zmod_color:
             f"CHANGE_ZCOLOR SLOT={zslot} HEX={zhex}|primary"
         )
 
+        if hide == 0:
+            gcmd.respond_raw(
+                f"// action:prompt_button {self._t('load')}|"
+                f"_T_IN_ZCOLOR SLOT={zslot} NAPR=0|primary"
+            )
+            gcmd.respond_raw(
+                f"// action:prompt_button {self._t('unload')}|"
+                f"_T_IN_ZCOLOR SLOT={zslot} NAPR=1|primary"
+            )
         gcmd.respond_raw("// action:prompt_button_group_end")
 
         if hide == 0:
@@ -2019,6 +2032,22 @@ class zmod_color:
             gcmd.respond_raw("// action:prompt_button_group_end")
             gcmd.respond_raw(f"// action:prompt_footer_button {self._t('cancel')}|RESPOND TYPE=command MSG=action:prompt_end")
             gcmd.respond_raw("// action:prompt_show")
+
+    # Загрузка выгрузка филамента
+    def cmd_T_IN_ZCOLOR(self, gcmd):
+        gcmd.respond_raw("// action:prompt_end")
+        zslot = gcmd.get_int('SLOT', 0)
+        if zslot < 0 or zslot > self.color_limit:
+            raise gcmd.error(self._t('error_slot'))
+
+        napr = gcmd.get_int('NAPR', 0)
+        if napr not in (0, 1):
+            raise gcmd.error(self._t('error_napr'))
+
+        if napr == 0:
+            self.gcode.run_script_from_command(f"_T_IN T{zslot}")
+        else:
+            self.gcode.run_script_from_command(f"_T_IN T{zslot}")
 
 def load_config(config):
     return zmod_color(config)
