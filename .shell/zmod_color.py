@@ -2204,7 +2204,7 @@ class zmod_color:
     # Загрузка выгрузка филамента
     def cmd_T_IN_ZCOLOR(self, gcmd):
         gcmd.respond_raw("// action:prompt_end")
-        nocolor = gcmd.get_int('NOCOLOR', 1)
+        nocolor = gcmd.get_int('NOCOLOR', 0)
         zslot = gcmd.get_int('SLOT', 0)
         if zslot < 0 or zslot > self.color_limit:
             raise gcmd.error(self._t('error_slot'))
@@ -2273,7 +2273,7 @@ class zmod_color:
             ]
             self.gcode.run_script_from_command("\n".join(script))
 
-        if nocolor == 1:
+        if nocolor == 0:
             self.gcode.run_script_from_command("COLOR")
 
 def load_config(config):
