@@ -7,6 +7,19 @@ import subprocess
 
 FFCONFIG='/usr/data/firmwareRes/config/'
 FILE_CONFIG='/usr/data/config/mod_data/file.json'
+TYPECONFIG='/usr/data/config/mod_data/filament.json'
+
+NO_EXCLUDE_FIELDS = ['temp', 'temp_manual', 'temp_wait']
+
+DEFAULT_FILAMENT_SETTINGS = {
+    "temp": 220,                        # Температура продувки перед печатью (базовая)
+    "temp_manual": 250,                 # Температура продувки в ручном режиме
+    "temp_wait": 120,                   # Температура простоя
+    "filament_tube_length": 295,        # Длина загрузки
+    "filament_drop_length": 50,         # Длина продувки перед печатью
+    "trash_x": 275.0,                   # Координата корзины X
+    "trash_y": 254.0                    # Координата корзины Y
+}
 
 TRANSLATIONS = {
     'ru': {
@@ -54,7 +67,8 @@ TRANSLATIONS = {
         'spool': "Катушка",
         'unload_error': "Ошибка выгрузки: {}",
         'unload_success': "Выгрузка начата",
-        'unload': "Выгрузить"
+        'unload': "Выгрузить",
+        'grab': "Взять"
     },
     'en': {
         'auto_assign_no_color_match': "Auto-assignment: Couldn't match color for {}",
@@ -101,7 +115,8 @@ TRANSLATIONS = {
         'spool': "in spool",
         'unload_error': "Unloading error: {}",
         'unload_success': "Unloading started",
-        'unload': "Unload"
+        'unload': "Unload",
+        'grab': "Grab"
     },
     'de': {
         'auto_assign_no_color_match': "Autozuweisung: Farbe für {} nicht gefunden",
@@ -148,7 +163,8 @@ TRANSLATIONS = {
         'spool': "in Spule",
         'unload_error': "Fehler beim Entladen: {}",
         'unload_success': "Entladen gestartet",
-        'unload': "Entladen"
+        'unload': "Entladen",
+        'grab': "Greifen"
     },
     'fr': {
         'auto_assign_no_color_match': "Assignation auto : Impossible de faire correspondre la couleur pour {}",
@@ -195,7 +211,8 @@ TRANSLATIONS = {
         'spool': "dans la bobine",
         'unload_error': "Erreur de déchargement : {}",
         'unload_success': "Déchargement commencé",
-        'unload': "Décharger"
+        'unload': "Décharger",
+        'grab': "Saisir"
     },
     'it': {
         'auto_assign_no_color_match': "Assegnazione auto: Impossibile abbinare il colore per {}",
@@ -242,7 +259,8 @@ TRANSLATIONS = {
         'spool': "nella bobina",
         'unload_error': "Errore di scaricamento: {}",
         'unload_success': "Scaricamento avviato",
-        'unload': "Scarica"
+        'unload': "Scarica",
+        'grab': "Prendi"
     },
     'es': {
         'auto_assign_no_color_match': "Asignación auto: No se pudo encontrar el color para {}",
@@ -289,7 +307,8 @@ TRANSLATIONS = {
         'spool': "en el carrete",
         'unload_error': "Error de descarga: {}",
         'unload_success': "Descarga iniciada",
-        'unload': "Descargar"
+        'unload': "Descargar",
+        'grab': "Tomar"
     },
     'zh': {
         'auto_assign_no_color_match': "自动分配：无法匹配颜色 {}",
@@ -336,7 +355,8 @@ TRANSLATIONS = {
         'spool': "在线轴中",
         'unload_error': "卸载错误：{}",
         'unload_success': "开始卸载",
-        'unload': "卸载"
+        'unload': "卸载",
+        'grab': "抓取"
     },
     'ja': {
         'auto_assign_no_color_match': "自動割当：{}の色が一致しません",
@@ -383,7 +403,8 @@ TRANSLATIONS = {
         'spool': "スプール内",
         'unload_error': "排出エラー：{}",
         'unload_success': "排出を開始",
-        'unload': "排出する"
+        'unload': "排出する",
+        'grab': "掴む"
     },
     'ko': {
         'auto_assign_no_color_match': "자동 할당: {}에 대한 색상을 찾을 수 없습니다",
@@ -430,7 +451,8 @@ TRANSLATIONS = {
         'spool': "스풀 내",
         'unload_error': "언로드 오류: {}",
         'unload_success': "언로드 시작",
-        'unload': "언로드"
+        'unload': "언로드",
+        'grab': "잡기"
     },
     'pt': {
         'auto_assign_no_color_match': "Atribuição auto: Não foi possível corresponder a cor para {}",
@@ -478,6 +500,7 @@ TRANSLATIONS = {
         'unload_error': "Erro ao descarregar: {}",
         'unload_success': "Descarga iniciada",
         'unload': "Descarregar"
+        'grab': "Pegar",
     },
     "cs": {
         'auto_assign_no_color_match': "Auto-přiřazení: Nepodařilo se shodovat barvu pro {}",
@@ -524,7 +547,8 @@ TRANSLATIONS = {
         "spool": "Cívka",
         "unload_error": "Chyba vyndávání: {}",
         "unload_success": "Vyndávání spuštěno",
-        "unload": "Vyndat"
+        "unload": "Vyndat",
+        'grab': "Uchopit"
     },
     'tr': {
         'auto_assign_no_color_match': "Otomatik atama: {} için renk eşleşmedi",
@@ -571,7 +595,8 @@ TRANSLATIONS = {
         'spool': "makara",
         'unload_error': "Boşaltma hatası: {}",
         'unload_success': "Boşaltma başlatıldı",
-        'unload': "Boşalt"
+        'unload': "Boşalt",
+        'grab': "Yakala"
     }
 }
 
@@ -601,6 +626,26 @@ class zmod_color:
                 'PET-CF', 'PAHT-CF', 'S-PAHT', 'S-Multi', 'PA-CF', 'HIPS',
                 'PVA', 'TPU-90A', 'TPU-95A', 'TPU-64D', '?'
             ]
+
+        self.temp_defaults = {
+            "PLA":      {"temp": 220, "temp_manual": 250, "temp_wait": 120},
+            "PETG":     {"temp": 240, "temp_manual": 270, "temp_wait": 140},
+            "PLA-CF":   {"temp": 220, "temp_manual": 250, "temp_wait": 120},
+            "PETG-CF":  {"temp": 240, "temp_manual": 270, "temp_wait": 140},
+            "ABS":      {"temp": 250, "temp_manual": 280, "temp_wait": 150},
+            "ASA":      {"temp": 250, "temp_manual": 280, "temp_wait": 150},
+            "SILK":     {"temp": 220, "temp_manual": 250, "temp_wait": 120},
+            "PET-CF":   {"temp": 270, "temp_manual": 300, "temp_wait": 170},
+            "S-PAHT":   {"temp": 280, "temp_manual": 310, "temp_wait": 180},
+            "S-MULTI":  {"temp": 270, "temp_manual": 300, "temp_wait": 170},
+            "PA-CF":    {"temp": 270, "temp_manual": 300, "temp_wait": 170},
+            "HIPS":     {"temp": 250, "temp_manual": 280, "temp_wait": 150},
+            "PVA":      {"temp": 220, "temp_manual": 250, "temp_wait": 120},
+            "TPU-90A":  {"temp": 220, "temp_manual": 250, "temp_wait": 120},
+            "TPU-95A":  {"temp": 220, "temp_manual": 250, "temp_wait": 120},
+            "TPU-64D":  {"temp": 220, "temp_manual": 250, "temp_wait": 120}
+        }
+
         self.gcode = self.printer.lookup_object('gcode')
         self.gcode.register_command('GET_ZCOLOR', self.cmd_GET_ZCOLOR)
         self.gcode.register_command('SET_ZCOLOR', self.cmd_SET_ZCOLOR)
@@ -642,6 +687,8 @@ class zmod_color:
         if self.zmod is not None:
             self.lang = self.zmod.get_lang()
 
+        self.get_filament_config('PLA')
+
         self.COLOR_MAPPING = {}
         try:
             with open(f"/usr/data/config/mod_data/color/{self.lang}.json", 'r', encoding='utf-8') as f:
@@ -667,6 +714,90 @@ class zmod_color:
         # Инициализация датчиков наличия и движения филамента для ex0-ex3
         self.fd_sensors = [self.printer.lookup_object(f"filament_switch_sensor fd_ex{i}", None) for i in range(4)]
         self.fm_sensors = [self.printer.lookup_object(f"filament_motion_sensor fm_ex{i}", None) for i in range(4)]
+
+    def upgrade_filament_json(self):
+        existing_file_data = {}
+        try:
+            with open(TYPECONFIG, 'r') as f:
+                existing_file_data = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+
+        has_default = 'default' in existing_file_data
+        if has_default:
+            default_filament = existing_file_data['default']
+            required_new_params = ['temp', 'temp_manual', 'temp_wait', 'filament_tube_length', 'filament_drop_length', 'trash_x', 'trash_y']
+            if all(param in default_filament for param in required_new_params):
+            return existing_file_data
+        else:
+            default_filament = DEFAULT_FILAMENT_SETTINGS.copy()
+
+        default_filament['temp'] = default_filament.get('temp', 240)
+        default_filament['temp_manual'] = default_filament.get('temp_manual', 230)
+        default_filament['temp_wait'] = default_filament.get('temp_wait', 150)
+        default_filament['filament_tube_length'] = 295
+        default_filament['filament_drop_length'] = 50
+        default_filament['trash_x'] = 275.0
+        default_filament['trash_y'] = 254.0
+
+        data = {'default': default_filament}
+        for filament_name in existing_file_data:
+            if filament_name == 'default':
+                continue
+            new_filament = existing_file_data[filament_name].copy()
+            fil_defaults = self.temp_defaults.get(filament_name, default_filament)
+            for key in NO_EXCLUDE_FIELDS:
+                if key not in new_filament:
+                    new_filament[key] = fil_defaults.get(key, default_filament.get(key, DEFAULT_FILAMENT_SETTINGS[key]))
+            data[filament_name] = new_filament
+
+        return self.save_filament_json(data, True)
+
+    def save_filament_json(self, data, cleanup=False):
+        if cleanup:
+            existing_file_data = {}
+        else:
+            try:
+                with open(TYPECONFIG, 'r') as f:
+                    existing_file_data = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                existing_file_data = {}
+
+        new_data = {'default': data['default'].copy()}
+        for filament_name in data.keys():
+            if filament_name == 'default':
+                continue
+            new_filament = {}
+            if filament_name not in existing_file_data:
+                this_filament = data[filament_name]
+                for key in this_filament.keys():
+                    if key in NO_EXCLUDE_FIELDS or this_filament[key] != new_data['default'][key]:
+                        new_filament[key] = this_filament[key]
+            else:
+                this_filament = existing_file_data[filament_name]
+                for key in this_filament:
+                    new_filament[key] = this_filament[key]
+                for key in NO_EXCLUDE_FIELDS:
+                    if key not in new_filament:
+                        new_filament[key] = data[filament_name][key]
+            new_data[filament_name] = new_filament
+
+        with open(TYPECONFIG, 'w') as f:
+            json.dump(new_data, f, indent=4)
+            return new_data
+
+    def get_filament_config(self, filament_type):
+        try:
+            data = self.upgrade_filament_json()
+        except Exception:
+            data = {'default': DEFAULT_FILAMENT_SETTINGS.copy()}
+        if filament_type not in data and filament_type in self.temp_defaults:
+            new_profile = data['default'].copy()
+            new_profile.update(self.temp_defaults[filament_type])
+            data[filament_type] = new_profile
+        config = data.get(filament_type, data['default']).copy()
+        config['filament_type'] = filament_type
+        return config
 
     def _get_active_mesh_profile(self):
         try:
@@ -1951,11 +2082,11 @@ class zmod_color:
 
         if hide == 0:
             gcmd.respond_raw(
-                f"// action:prompt_button {self._t('load')}|"
+                f"// action:prompt_button {self._t('grab')}|"
                 f"_T_IN_ZCOLOR SLOT={zslot} NAPR=0|primary"
             )
             gcmd.respond_raw(
-                f"// action:prompt_button {self._t('unload')}|"
+                f"// action:prompt_button {self._t('load')}|"
                 f"_T_IN_ZCOLOR SLOT={zslot} NAPR=1|primary"
             )
         gcmd.respond_raw("// action:prompt_button_group_end")
@@ -2059,14 +2190,43 @@ class zmod_color:
         if zslot < 0 or zslot > self.color_limit:
             raise gcmd.error(self._t('error_slot'))
 
+        # 1. Запрашиваем актуальное состояние ячеек принтера
+        if self.display:
+            status_code, response_data = self.zsend_post_request("/detail")
+        else:
+            status_code, response_data = self.get_printer_data_detail()
+
+        # 2. Ищем имя пластика в выбранном слоте
+        material_name = 'PLA' # Дефолтное значение на случай сбоя связи
+        if status_code:
+            slots_info = self.parse_printer_response(response_data)
+            for slot in slots_info:
+                if int(slot['ID']) == zslot:
+                    material_name = slot['Material']
+                    break
+
+        # 3. Извлекаем конфигурацию температур и длин для найденного пластика
+        slot_config = self.get_filament_config(material_name)
+
+        # 4. Выводим все параметры в консоль принтера
+        gcmd.respond_info(
+            f"Slot {zslot} Config ({material_name}):\n"
+            f"  temp (auto purge): {slot_config.get('temp')}°C\n"
+            f"  temp_manual:       {slot_config.get('temp_manual')}°C\n"
+            f"  temp_wait:         {slot_config.get('temp_wait')}°C\n"
+            f"  tube_length:       {slot_config.get('filament_tube_length')} mm\n"
+            f"  drop_length:       {slot_config.get('filament_drop_length')} mm\n"
+            f"  trash_position:    X={slot_config.get('trash_x')} Y={slot_config.get('trash_y')}"
+        )
+
         napr = gcmd.get_int('NAPR', 0)
         if napr not in (0, 1):
             raise gcmd.error(self._t('error_napr'))
 
-        if napr == 0:
-            self.gcode.run_script_from_command(f"_T_IN T={zslot-1}")
-        else:
-            self.gcode.run_script_from_command(f"_T_IN T={zslot-1}")
+        if napr == 0: # Взять
+            self.gcode.run_script_from_command(f"_T_IN T={zslot-1}\nM400\n")
+        else: # Загрузить
+            self.gcode.run_script_from_command(f"_T_IN T={zslot-1}\nM400\n")
         self.gcode.run_script_from_command(f"COLOR")
 
 def load_config(config):
