@@ -2241,10 +2241,34 @@ class zmod_color:
         if napr not in (0, 1):
             raise gcmd.error(self._t('error_napr'))
 
-        if napr == 0: # Взять
-            self.gcode.run_script_from_command(f"_T_IN T={zslot-1}\nM400\n")
-        else: # Загрузить
-            self.gcode.run_script_from_command(f"_T_IN T={zslot-1}\nM400\n")
+        script = [
+            f"_T_IN T={zslot-1}",
+            f"G1 X250 F12000",
+            f"G1 Y{slot_config.get('trash_y'):.3f} F24000",
+            f"G1 X{slot_config.get('trash_x'):.3f} F2400",
+            "M400"
+        ]
+
+        self.gcode.run_script_from_command("\n".join(script))
+
+        if napr == 1: # Загрузить
+            if slot_config.get('filament_tube_length')>150.0:
+                script = [
+                    f"G92 E0",
+                    f"G1 E150 F240",
+                    f"M400",
+                ]
+                self.gcode.run_script_from_command("\n".join(script))
+                tube = slot_config.get('filament_tube_length') - 150.0
+            else:
+                tube = slot_config.get('filament_tube_length')
+
+            script = [
+                f"G1 E{second:.3f} F240",
+                f"M400",
+                f"_T_OUT"
+            ]
+            self.gcode.run_script_from_command("\n".join(script))
         self.gcode.run_script_from_command(f"COLOR")
 
 def load_config(config):
