@@ -817,6 +817,44 @@ class zmod_color:
         config['filament_type'] = filament_type
         return config
 
+    def set_printer_data_detail(self, slot_id, material_name, hex_color):
+        try:
+            file_path = FFCONFIG + 'filament.json'
+            with open(file_path, 'r', encoding='utf-8') as file:
+                raw = file.read()
+
+            match = re.search(r'(/\*.*?\*/)', raw, flags=re.DOTALL)
+            if match:
+                comment_block = "\n" + match.group(1)
+            else:
+                comment_block = "\n/* Printer Filament Config                            vector<uint32_t> g_mapFilamentColor = {                            0xFFFFFF,0xFEF043,0xDCF478,0x0ACC38,0x067749,                            0x0C6283,0x0DE2A0,0x75D9F3,0x45A8F9,0x2750E0,                            0x46328E,0xA03CF7,0xF330F9,0xD4B0DC,0xF95D73,                            0xF72224,0x7C4B00,0xF98D33,0xFDEBD5,0xD3C4A3,                            0xAF7836,0x898989,0xBCBCBC,0x161616                        }*/"
+
+            clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
+            filament_cfg = json.loads(clean)
+
+            prefix = f"ex{slot_id - 1}_"
+
+            if material_name in self.valid_types:
+                filament_cfg[prefix + "filament_type"] = self.valid_types.index(material_name)
+            else:
+                filament_cfg[prefix + "filament_type"] = 0
+
+            target_hex = hex_color.replace("#", "").lower()
+            available_hex_keys = list(self.COLOR_MAPPING.keys())
+
+            if target_hex in available_hex_keys:
+                filament_cfg[prefix + "filament_color"] = available_hex_keys.index(target_hex)
+            else:
+                filament_cfg[prefix + "filament_color"] = 0
+
+            new_json_str = json.dumps(filament_cfg, indent=3)
+            with open(file_path, 'w', encoding='utf-8') as file:
+                file.write(new_json_str + comment_block)
+
+            return 200, {"code": 0, "msg": "OK"}
+        except Exception as e:
+            return None, {"code": -1, "msg": f"Local save error: {str(e)}"}
+
     def _get_active_mesh_profile(self):
         try:
             if self.bed_mesh is not None:
