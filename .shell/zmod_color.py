@@ -1866,21 +1866,6 @@ class zmod_color:
         else:
             gcmd.respond_raw(self._t('no_response', json.dumps(response_data)))
 
-    def find_t_code(self, filename):
-        pattern = re.compile(r'^T([1-9]?[0-9])')
-
-        with open(f"{self.virtual_sd.sdcard_dirname}/{filename}", 'r', encoding='utf-8') as file:
-            for i, line in enumerate(file):
-                if i > 3000:
-                    break;
-                stripped_line = line.strip()
-                match = pattern.match(stripped_line)
-                if match:
-                    channel_num = match.group(1)
-                    self.gcode.run_script_from_command(f"SET_CURRENT_PRUTOK CHANNEL={channel_num}")
-                    return
-        self.gcode.run_script_from_command("SET_CURRENT_PRUTOK CHANNEL=0")
-
     def cmd_PRINT_ZCOLOR(self, gcmd):
         gcmd.respond_raw("// action:prompt_end")
         fname = gcmd.get('FILENAME', '')
@@ -1952,8 +1937,29 @@ class zmod_color:
                 with open(FILE_CONFIG, 'w') as file:
                     json.dump(tools, file, indent=2)
 
-                self.find_t_code(fname)
-                self.gcode.run_script_from_command(f"SDCARD_PRINT_FILE FILENAME=\"{fname}\"")
+                script = [
+                    "SET_FILAMENT_SENSOR SENSOR=fm_ex0 ENABLE=0",
+                    "SET_FILAMENT_SENSOR SENSOR=fm_ex1 ENABLE=0",
+                    "SET_FILAMENT_SENSOR SENSOR=fm_ex2 ENABLE=0",
+                    "SET_FILAMENT_SENSOR SENSOR=fm_ex3 ENABLE=0",
+                    f"SET_PA_ADVANCE T0=99.0 T1=99.0 T2=99.0 T3=99.0 ENABLE={1 if autopa else 0}",
+                    "SET_FAN_M106P2 ADJUSTED=0 FACTOR=0",
+                    "SET_FAN_M106 ADJUSTED=0 FACTOR=0",
+                    "SDCARD_NO_FILAMENT_CHECK_EX CHECK=0",
+                    "SDCARD_SET_NEED_CHECK_EX CHECK=0",
+                    "SDCARD_SET_GCODE_EX_USED_BASE INDEX=0 EXTRUDER=T0",
+                    "SDCARD_SET_GCODE_EX_USED_BASE INDEX=1 EXTRUDER=T1",
+                    "SDCARD_SET_GCODE_EX_USED_BASE INDEX=2 EXTRUDER=T2",
+                    "SDCARD_SET_GCODE_EX_USED_BASE INDEX=3 EXTRUDER=T3",
+                    f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX=0 EXTRUDER=T{tools[0]}",
+                    f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX=1 EXTRUDER=T{tools[1]}",
+                    f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX=2 EXTRUDER=T{tools[2]}",
+                    f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX=3 EXTRUDER=T{tools[3]}",
+                    "SDCARD_SET_NEED_CHECK_EX CHECK=1",
+                    f"SDCARD_PRINT_FILE FILENAME=\"{fname}\""
+                ]
+
+                self.gcode.run_script_from_command("\n".join(script))
         else:
             gcmd.respond_raw(self._t('no_response', json.dumps(response_data)))
 
