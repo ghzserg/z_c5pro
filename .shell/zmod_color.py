@@ -1257,7 +1257,6 @@ class zmod_color:
         # Вычисляем итоговые смещения G-code (Offsets)
         calc_offset_x = tn_x - t0_x
         calc_offset_y = tn_y - t0_y
-        calc_offset_z = (tn_z - t0_z) + manual_z_offset
         calc_offset_z = tn_z - z_station_pos + manual_z_offset + self.plate_z
 
         # Извлекаем абсолютные координаты парковочного кармана
