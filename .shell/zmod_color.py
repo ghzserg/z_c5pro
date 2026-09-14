@@ -1444,10 +1444,10 @@ class zmod_color:
                         if self.get_current_channel() == int(slot['ID']):
                             prompt_text = f"Extruder: {self.get_current_channel()}: {slot['Material']}/{slot['Color']}"
                             if silent == 0:
-                                button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_T_OUT_ZCOLOR|primary|{slot['HEX']}"
+                                button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_T_OUT|primary|{slot['HEX']}"
                             break
                 else:
-                    button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_T_OUT_ZCOLOR|primary"
+                    button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_T_OUT|primary"
 
             if silent == 0:
                 gcmd.respond_raw(f"// action:prompt_text {prompt_text}")
