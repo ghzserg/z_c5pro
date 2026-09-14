@@ -1442,12 +1442,15 @@ class zmod_color:
             button_text = ""
             if self.get_extruder_sensor():
                 prompt_text = f"Extruder: {self.get_current_channel()}"
-                for slot in result:
-                    if self.get_current_channel() == int(slot['ID']):
-                        prompt_text = f"Extruder: {self.get_current_channel()}: {slot['Material']}/{slot['Color']}"
-                        if silent == 0:
-                            button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_T_OUT_ZCOLOR|primary|{slot['HEX']}"
-                        break
+                if self.display:
+                    for slot in result:
+                        if self.get_current_channel() == int(slot['ID']):
+                            prompt_text = f"Extruder: {self.get_current_channel()}: {slot['Material']}/{slot['Color']}"
+                            if silent == 0:
+                                button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_T_OUT_ZCOLOR|primary|{slot['HEX']}"
+                            break
+                else:
+                    button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_T_OUT_ZCOLOR|primary"
 
             if silent == 0:
                 gcmd.respond_raw(f"// action:prompt_text {prompt_text}")
@@ -1761,11 +1764,14 @@ class zmod_color:
                 gcmd.respond_raw(f"// action:prompt_begin {self._t('prompt_material')}")
                 prompt_text = f"Extruder: None ({self.get_current_channel()})"
                 if self.get_extruder_sensor():
-                    prompt_text = f"Extruder: {self.get_current_channel()}"
-                    for slot in result:
-                        if self.get_current_channel() == int(slot['ID']):
-                            prompt_text = f"Extruder: {self.get_current_channel()}: {slot['Material']}/{slot['Color']}"
-                            break
+                    if self.display:
+                        prompt_text = f"Extruder: {self.get_current_channel()}"
+                        for slot in result:
+                            if self.get_current_channel() == int(slot['ID']):
+                                prompt_text = f"Extruder: {self.get_current_channel()}: {slot['Material']}/{slot['Color']}"
+                                break
+                    else:
+                        button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_T_OUT_ZCOLOR|primary"
 
                 gcmd.respond_raw(f"// action:prompt_text {fname} | {prompt_text}")
 
@@ -1944,6 +1950,10 @@ class zmod_color:
                     json.dump(tools, file, indent=2)
 
                 script = [
+                    "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=0",
+                    "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0",
+                    "SET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0",
+                    "SET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=0",
                     "SET_FILAMENT_SENSOR SENSOR=fm_ex0 ENABLE=0",
                     "SET_FILAMENT_SENSOR SENSOR=fm_ex1 ENABLE=0",
                     "SET_FILAMENT_SENSOR SENSOR=fm_ex2 ENABLE=0",
