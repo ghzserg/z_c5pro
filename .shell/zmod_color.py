@@ -621,6 +621,7 @@ class zmod_color:
 
         self.display = config.getboolean('display', True)
         self.lang = 'en'
+        self.plate_z = config.getfloat('plate_z', 0.061)
 
         temp_defaults = {
             "PLA":      {"temp": 220, "temp_manual": 250, "temp_wait": 120},
@@ -1242,6 +1243,8 @@ class zmod_color:
             tn_x = float(ext_cfg[f"t{t_index}_offset_x"])
             tn_y = float(ext_cfg[f"t{t_index}_offset_y"])
             tn_z = float(ext_cfg[f"t{t_index}_offset_z"])
+
+            z_station_pos = float(ext_cfg.get("z_station_pos", -1.78))
         except KeyError as e:
             raise gcmd.error(f"Missing offset variable in extruder.json: {str(e)}")
 
@@ -1255,6 +1258,7 @@ class zmod_color:
         calc_offset_x = tn_x - t0_x
         calc_offset_y = tn_y - t0_y
         calc_offset_z = (tn_z - t0_z) + manual_z_offset
+        calc_offset_z = tn_z - z_station_pos + manual_z_offset + self.plate_z
 
         # Извлекаем абсолютные координаты парковочного кармана
         # Для T0 ключи без индекса, для остальных — с индексом N
@@ -1276,6 +1280,8 @@ class zmod_color:
         current_z = move_status.get('gcode_position', [0, 0, 0])[2]
         if current_z < 10.0:
             self.gcode.run_script_from_command("G1 Z10.000 F6000\nM400")
+
+
 
         # Формируем и выполняем последовательность G-code команд
         script = [
