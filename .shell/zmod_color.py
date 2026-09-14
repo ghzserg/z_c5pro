@@ -1951,10 +1951,10 @@ class zmod_color:
                     "SDCARD_SET_GCODE_EX_USED_BASE INDEX=1 EXTRUDER=T1",
                     "SDCARD_SET_GCODE_EX_USED_BASE INDEX=2 EXTRUDER=T2",
                     "SDCARD_SET_GCODE_EX_USED_BASE INDEX=3 EXTRUDER=T3",
-                    f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX=0 EXTRUDER=T{tools[0]}",
-                    f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX=1 EXTRUDER=T{tools[1]}",
-                    f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX=2 EXTRUDER=T{tools[2]}",
-                    f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX=3 EXTRUDER=T{tools[3]}",
+                    f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX=0 EXTRUDER=T{tools[0]-1}",
+                    f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX=1 EXTRUDER=T{tools[1]-1}",
+                    f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX=2 EXTRUDER=T{tools[2]-1}",
+                    f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX=3 EXTRUDER=T{tools[3]-1}",
                     "SDCARD_SET_NEED_CHECK_EX CHECK=1",
                     f"SDCARD_PRINT_FILE FILENAME=\"{fname}\""
                 ]
