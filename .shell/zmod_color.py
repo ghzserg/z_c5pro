@@ -1280,8 +1280,6 @@ class zmod_color:
         if current_z < 10.0:
             self.gcode.run_script_from_command("G1 Z10.000 F6000\nM400")
 
-
-
         # Формируем и выполняем последовательность G-code команд
         script = [
             "SET_VELOCITY_LIMIT ACCEL=8000",
@@ -1441,7 +1439,7 @@ class zmod_color:
             button_text = ""
             if self.get_extruder_sensor():
                 prompt_text = f"Extruder: {self.get_current_channel()}"
-                if self.display:
+                if not self.display:
                     for slot in result:
                         if self.get_current_channel() == int(slot['ID']):
                             prompt_text = f"Extruder: {self.get_current_channel()}: {slot['Material']}/{slot['Color']}"
@@ -1763,14 +1761,11 @@ class zmod_color:
                 gcmd.respond_raw(f"// action:prompt_begin {self._t('prompt_material')}")
                 prompt_text = f"Extruder: None ({self.get_current_channel()})"
                 if self.get_extruder_sensor():
-                    if self.display:
-                        prompt_text = f"Extruder: {self.get_current_channel()}"
-                        for slot in result:
-                            if self.get_current_channel() == int(slot['ID']):
-                                prompt_text = f"Extruder: {self.get_current_channel()}: {slot['Material']}/{slot['Color']}"
-                                break
-                    else:
-                        button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_T_OUT_ZCOLOR|primary"
+                    prompt_text = f"Extruder: {self.get_current_channel()}"
+                    for slot in result:
+                        if self.get_current_channel() == int(slot['ID']):
+                            prompt_text = f"Extruder: {self.get_current_channel()}: {slot['Material']}/{slot['Color']}"
+                            break
 
                 gcmd.respond_raw(f"// action:prompt_text {fname} | {prompt_text}")
 
@@ -1948,6 +1943,9 @@ class zmod_color:
                 with open(FILE_CONFIG, 'w') as file:
                     json.dump(tools, file, indent=2)
 
+                self.gcode.run_script_from_command("\n".join(script))
+                t_start = tools[self.find_t_code(fname)]-1
+
                 script = [
                     "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=0",
                     "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0",
@@ -1971,12 +1969,32 @@ class zmod_color:
                     f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX=2 EXTRUDER=T{tools[2]-1}",
                     f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX=3 EXTRUDER=T{tools[3]-1}",
                     "SDCARD_SET_NEED_CHECK_EX CHECK=1",
+                    "MUTE_MODE_DISABLE",
+                    f"_T_IN T={t_start}",
+                    f"SDCARD_SET_CHANNEL CHANNEL={t_start}",
                     f"SDCARD_PRINT_FILE FILENAME=\"{fname}\""
                 ]
 
                 self.gcode.run_script_from_command("\n".join(script))
         else:
             gcmd.respond_raw(self._t('no_response', json.dumps(response_data)))
+
+    def find_t_code(self, filename):
+        pattern = re.compile(r'^T([1-9]?[0-9])')
+
+        with open(f"{self.virtual_sd.sdcard_dirname}/{filename}", 'r', encoding='utf-8') as file:
+            for i, line in enumerate(file):
+                if i > 3000:
+                    break;
+                stripped_line = line.strip()
+                match = pattern.match(stripped_line)
+                if match:
+                    channel_num = int(match.group(1))
+                    if channel_num >= 0 and channel_num < 4:
+                        return channel_num
+                    else:
+                        return 0
+        return 0
 
     def cmd_CHANGE_FILAMENT(self, gcmd):
         channel = gcmd.get_int('CHANNEL', None)
