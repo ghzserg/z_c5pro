@@ -732,7 +732,14 @@ class zmod_color:
         self.fd_sensors = [self.printer.lookup_object(f"filament_switch_sensor fd_ex{i}", None) for i in range(4)]
         self.fm_sensors = [self.printer.lookup_object(f"filament_motion_sensor fm_ex{i}", None) for i in range(4)]
 
-        self.status = self.printer.lookup_object('printer_state').get_status()
+        self.macro_obj = self.printer.lookup_object('gcode_macro _TEST_POINT', None)
+
+    def temp_z_offset(self):
+        if self.macro_obj is not None:
+            variables = getattr(self.macro_obj, 'runtime_variables', {})
+            return variables.get('temp_z_offset', 0.0)
+        return 0.0
+
 
     def upgrade_filament_json(self):
         existing_file_data = {}
@@ -1124,8 +1131,7 @@ class zmod_color:
 
         gcmd.respond_raw(f"// Door: {door_state}")
         gcmd.respond_raw(f"// Top: {top_state}")
-        temp_z_offset = self.status.get('gcode_macro _TEST_POINT', {}).get('temp_z_offset', 0.0)
-        gcmd.respond_raw(f"// Offset: X={self.gcode_move.homing_position[0]} Y={self.gcode_move.homing_position[1]} Z={self.gcode_move.homing_position[2]} ({temp_z_offset})")
+        gcmd.respond_raw(f"// Offset: X={self.gcode_move.homing_position[0]} Y={self.gcode_move.homing_position[1]} Z={self.gcode_move.homing_position[2]} ({self.temp_z_offset()})")
 
     def cmd_T_G28(self, gcmd):
         params = gcmd.get_command_parameters()
@@ -1268,8 +1274,7 @@ class zmod_color:
         # Вычисляем итоговые смещения G-code (Offsets)
         calc_offset_x = tn_x - t0_x
         calc_offset_y = tn_y - t0_y
-        temp_z_offset = self.status.get('gcode_macro _TEST_POINT', {}).get('temp_z_offset', 0.0)
-        calc_offset_z = tn_z - z_station_pos + manual_z_offset + self.plate_z + temp_z_offset
+        calc_offset_z = tn_z - z_station_pos + manual_z_offset + self.plate_z + self.temp_z_offset()
 
         # Извлекаем абсолютные координаты парковочного кармана
         # Для T0 ключи без индекса, для остальных — с индексом N
@@ -2523,8 +2528,7 @@ class zmod_color:
         except KeyError as e:
             raise gcmd.error(f"В extruder.json отсутствует калибровочный параметр: {str(e)}")
 
-        temp_z_offset = self.status.get('gcode_macro _TEST_POINT', {}).get('temp_z_offset', 0.0)
-        base_calculated_z = tn_z - z_station_pos + self.plate_z + temp_z_offset
+        base_calculated_z = tn_z - z_station_pos + self.plate_z + self.temp_z_offset()
         new_file_z_offset = target_absolute_z - base_calculated_z
         key_name = f"z_offset_t{active_t + 1}"
         z_cfg[key_name] = round(new_file_z_offset, 3)
