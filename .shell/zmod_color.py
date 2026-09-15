@@ -1969,10 +1969,13 @@ class zmod_color:
                     "SDCARD_SET_GCODE_EX_USED_BASE INDEX=1 EXTRUDER=T1",
                     "SDCARD_SET_GCODE_EX_USED_BASE INDEX=2 EXTRUDER=T2",
                     "SDCARD_SET_GCODE_EX_USED_BASE INDEX=3 EXTRUDER=T3",
-                    f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX=0 EXTRUDER=T{tools[0]-1}",
-                    f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX=1 EXTRUDER=T{tools[1]-1}",
-                    f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX=2 EXTRUDER=T{tools[2]-1}",
-                    f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX=3 EXTRUDER=T{tools[3]-1}",
+                ]
+
+                for idx in range(4):
+                    tool_val = tools[idx] if idx < len(tools) else (idx + 1)
+                    script.append(f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX={idx} EXTRUDER=T{tool_val-1}")
+
+                script += [
                     "SDCARD_SET_NEED_CHECK_EX CHECK=1",
                     "MUTE_MODE_DISABLE",
                     f"_T_PREPARE T={t_start} BED_TEMP={bed_temp:.1f} FULL=0",
@@ -2458,6 +2461,7 @@ class zmod_color:
             "M400"
         ]
         self.gcode.run_script_from_command("\n".join(script))
+
         if full == 1:
             self.gcode.run_script_from_command("_T_OUT")
 
