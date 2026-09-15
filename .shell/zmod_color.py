@@ -2523,7 +2523,7 @@ class zmod_color:
 
         try:
             new_json_str = json.dumps(z_cfg, indent=3)
-            with open(file_path, 'w', encoding='utf-8') as file:
+            with open(FFCONFIG + 'zoffset.json', 'w', encoding='utf-8') as file:
                 file.write(new_json_str + "\n/* Printer zoffset Config */")
         except Exception as e:
             raise gcmd.error(f"Ошибка записи в zoffset.json: {str(e)}")
