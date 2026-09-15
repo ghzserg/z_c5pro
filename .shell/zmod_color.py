@@ -673,6 +673,7 @@ class zmod_color:
         self.gcode.register_command('_T_IN_ZCOLOR', self.cmd_T_IN_ZCOLOR) # Загрузить в голову Tx и выдавать при необходимости
         self.gcode.register_command('_T_OUT', self.cmd_T_OUT)             # Освободить голову
         self.gcode.register_command('_T_STATUS', self.cmd_T_STATUS)       # Получить статус
+        self.gcode.register_command('_T_INFO', self.cmd_T_STATUS)         # Получить статус
         self.gcode.register_command('_T_G28', self.cmd_T_G28)             # Защищенный G28
         self.gcode.register_command('_T_RESTORE', self.cmd_T_RESTORE)     # Восстновить сохраненный экструдер
         self.gcode.register_command('_T_PREPARE', self.cmd_T_PREPARE)     # Прогреть и подготовить экструдер
