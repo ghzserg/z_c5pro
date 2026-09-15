@@ -18,7 +18,8 @@ DEFAULT_FILAMENT_SETTINGS = {
     "filament_tube_length": 295,        # Длина загрузки
     "filament_drop_length": 50,         # Длина продувки перед печатью
     "trash_x": 275.0,                   # Координата корзины X
-    "trash_y": 254.0                    # Координата корзины Y
+    "trash_y": 254.0,                   # Координата корзины Y
+    "fan_speed", 255.0                  # Скорость работы вентилятора при остывании
 }
 
 TRANSLATIONS = {
@@ -621,7 +622,10 @@ class zmod_color:
 
         self.display = config.getboolean('display', True)
         self.lang = 'en'
-        self.plate_z = config.getfloat('plate_z', 0.061)
+        self.plate_z = config.getfloat('plate_z', 0.061)        # Толщина платы по Z
+        self.wiper_x = config.getfloat('wiper_x', 266.50)       # Координаты места для очистки сопла
+        self.wiper_y = config.getfloat('wiper_y', 13.80)
+        self.wiper_z = config.getfloat('wiper_z', 1)
 
         temp_defaults = {
             "PLA":      {"temp": 220, "temp_manual": 250, "temp_wait": 120},
@@ -1944,8 +1948,8 @@ class zmod_color:
                 with open(FILE_CONFIG, 'w') as file:
                     json.dump(tools, file, indent=2)
 
-                self.gcode.run_script_from_command("\n".join(script))
-                t_start = tools[self.find_t_code(fname)]-1
+                file_channel, bed_temp = self.find_t_code(fname)
+                t_start = tools[file_channel] - 1
 
                 script = [
                     "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=0",
@@ -1971,7 +1975,7 @@ class zmod_color:
                     f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX=3 EXTRUDER=T{tools[3]-1}",
                     "SDCARD_SET_NEED_CHECK_EX CHECK=1",
                     "MUTE_MODE_DISABLE",
-                    f"_T_PREPARE T={t_start} FULL=0",
+                    f"_T_PREPARE T={t_start} BED_TEMP={bed_temp:.1f} FULL=0",
                     f"SDCARD_PRINT_FILE FILENAME=\"{fname}\""
                 ]
 
@@ -1981,20 +1985,36 @@ class zmod_color:
 
     def find_t_code(self, filename):
         pattern = re.compile(r'^T([1-9]?[0-9])')
+        pattern_bed = re.compile(r'^M(?:140|190)\s*S(\d+(?:\.\d+)?)')
+
+        channel_num = 0
+        bed_temp = 65.0
+        found_t = False
+        found_bed = False
 
         with open(f"{self.virtual_sd.sdcard_dirname}/{filename}", 'r', encoding='utf-8') as file:
             for i, line in enumerate(file):
                 if i > 3000:
-                    break;
+                    break
                 stripped_line = line.strip()
-                match = pattern.match(stripped_line)
-                if match:
-                    channel_num = int(match.group(1))
-                    if channel_num >= 0 and channel_num < 4:
-                        return channel_num
-                    else:
-                        return 0
-        return 0
+
+                if not found_t:
+                    match = pattern.match(stripped_line)
+                    if match:
+                        parsed_channel = int(match.group(1))
+                        channel_num = parsed_channel if 0 <= parsed_channel < 4 else 0
+                        found_t = True
+
+                if not found_bed:
+                    match_bed = pattern_bed.match(stripped_line)
+                    if match_bed:
+                        bed_temp = float(match_bed.group(1))
+                        found_bed = True
+
+                if found_t and found_bed:
+                    break
+
+        return channel_num, bed_temp
 
     def cmd_CHANGE_FILAMENT(self, gcmd):
         channel = gcmd.get_int('CHANNEL', None)
@@ -2360,8 +2380,8 @@ class zmod_color:
 
     # Подготовка экструдера
     def cmd_T_PREPARE(self, gcmd):
-        gcmd.respond_raw("// action:prompt_end")
         full = gcmd.get_int('FULL', 1)
+        bed_temp = gcmd.get_float('BED_TEMP', 65.0)
         t = gcmd.get_int('T', 0)
         zslot = t + 1
         if zslot < 1 or zslot > self.color_limit:
@@ -2397,13 +2417,49 @@ class zmod_color:
         if not is_absolute:
             self.gcode.run_script_from_command("G90")
 
+        current_z_offset = move_status.get('homing_offsets', [0.0, 0.0, 0.0])[2]
+        wiper_z = self.wiper_z - current_z_offset
+
         script = [
-            f"_T_IN T={t_start}",
+            f"M104 S{bed_temp:.1f}",                            # Греем стол
+            f"M104 S{slot_config.get('temp'):.3f} T{t}",            # Греем сопло
+            f"_T_IN T={t_start}",                               # Берем сопло
+            "G1 X250 F12000",                                   # Идем в корзину
+            f"G1 Y{slot_config.get('trash_y'):.3f} F24000",
+            f"G1 X{slot_config.get('trash_x'):.3f} F2400",
+            "M400",
+            f"_WAIT_TEMP T={t} EXTRUDER_TEMP={slot_config.get('temp'):.3f} BED_TEMP=0 FROM=_T_PREPARE"
+            "SET_FAN_SPEED FAN=chamber_fan SPEED=0.000",        # Сливаем пластик
+            "G92 E0",
+            f"G1 E{slot_config.get('filament_drop_length'):.3f} F240",
+            "M400",
+            f"M106 P1 S{slot_config.get('fan_speed'):.3f}",
+            "G92 E0",
+            "G1 E-5 F240",
+            "M400",
             f"SDCARD_SET_CHANNEL CHANNEL={t_start}",
+            "M400",
+            "G1 X250 F6000",                                    # Идем к резинке
+            f"G1 Y{self.wiper_y:.3f} F24000",
+            f"G1 X{self.wiper_x:.3f} F6000",
+            f"G1 Z{wiper_z:.3f} F600",
             "M400"
         ]
-
         self.gcode.run_script_from_command("\n".join(script))
+
+        if full == 1:
+            self.gcode.run_script_from_command(f"_WAIT_TEMP T={t} EXTRUDER_TEMP={slot_config.get('temp_wait'):.3f} BED_TEMP={bed_temp:.1f} FROM=_T_PREPARE")
+        else:
+            self.gcode.run_script_from_command(f"M106 P1 S0\n_WAIT_TEMP T={t} EXTRUDER_TEMP={slot_config.get('temp'):.3f} BED_TEMP={bed_temp:.1f} FROM=_T_PREPARE")
+
+        script = [
+            "M106 P1 S0",
+            "G1 Z10 F1200",
+            "M400"
+        ]
+        self.gcode.run_script_from_command("\n".join(script))
+        if full == 1:
+            self.gcode.run_script_from_command("_T_OUT")
 
         if not is_absolute:
             self.gcode.run_script_from_command("G91")
