@@ -1378,6 +1378,7 @@ class zmod_color:
         if not is_absolute:
             self.gcode.run_script_from_command("G90")
 
+        active_mesh = None
         if 'z' in homed_axes:
             current_z = move_status.get('gcode_position', [0, 0, 0])[2]
             if current_z < 5.0:
