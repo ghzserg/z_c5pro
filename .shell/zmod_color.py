@@ -671,6 +671,7 @@ class zmod_color:
         self.gcode.register_command('_T_STATUS', self.cmd_T_STATUS)       # Получить статус
         self.gcode.register_command('_T_G28', self.cmd_T_G28)             # Защищенный G28
         self.gcode.register_command('_T_RESTORE', self.cmd_T_RESTORE)     # Восстновить сохраненный экструдер
+        self.gcode.register_command('_T_PREPARE', self.cmd_T_PREPARE)     # Прогреть и подготовить экструдер
 
         self.printer.register_event_handler("klippy:ready", self._handle_ready)
 
@@ -1970,8 +1971,7 @@ class zmod_color:
                     f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX=3 EXTRUDER=T{tools[3]-1}",
                     "SDCARD_SET_NEED_CHECK_EX CHECK=1",
                     "MUTE_MODE_DISABLE",
-                    f"_T_IN T={t_start}",
-                    f"SDCARD_SET_CHANNEL CHANNEL={t_start}",
+                    f"_T_PREPARE T={t_start} FULL=0",
                     f"SDCARD_PRINT_FILE FILENAME=\"{fname}\""
                 ]
 
@@ -2357,6 +2357,56 @@ class zmod_color:
 
         if nocolor == 0:
             self.gcode.run_script_from_command("COLOR")
+
+    # Подготовка экструдера
+    def cmd_T_PREPARE(self, gcmd):
+        gcmd.respond_raw("// action:prompt_end")
+        full = gcmd.get_int('FULL', 1)
+        t = gcmd.get_int('T', 0)
+        zslot = t + 1
+        if zslot < 1 or zslot > self.color_limit:
+            raise gcmd.error(self._t('error_slot'))
+
+        if self.display:
+            status_code, response_data = self.zsend_post_request("/detail")
+        else:
+            status_code, response_data = self.get_printer_data_detail()
+
+        material_name = 'PLA'
+        if status_code:
+            slots_info = self.parse_printer_response(response_data)
+            for slot in slots_info:
+                if int(slot['ID']) == zslot:
+                    material_name = slot['Material']
+                    break
+
+        slot_config = self.get_filament_config(material_name)
+
+        gcmd.respond_info(
+            f"T{t} ({material_name}):\n"
+            f"  temp (auto purge): {slot_config.get('temp')}°C\n"
+            f"  temp_manual:       {slot_config.get('temp_manual')}°C\n"
+            f"  temp_wait:         {slot_config.get('temp_wait')}°C\n"
+            f"  tube_length:       {slot_config.get('filament_tube_length')} mm\n"
+            f"  drop_length:       {slot_config.get('filament_drop_length')} mm\n"
+            f"  trash_position:    X={slot_config.get('trash_x')} Y={slot_config.get('trash_y')}"
+        )
+
+        move_status = self.gcode_move.get_status(self.printer.get_reactor().monotonic())
+        is_absolute = move_status.get('absolute_coordinates', True)
+        if not is_absolute:
+            self.gcode.run_script_from_command("G90")
+
+        script = [
+            f"_T_IN T={t_start}",
+            f"SDCARD_SET_CHANNEL CHANNEL={t_start}",
+            "M400"
+        ]
+
+        self.gcode.run_script_from_command("\n".join(script))
+
+        if not is_absolute:
+            self.gcode.run_script_from_command("G91")
 
 def load_config(config):
     return zmod_color(config)
