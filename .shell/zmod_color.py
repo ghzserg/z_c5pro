@@ -2424,7 +2424,7 @@ class zmod_color:
         wiper_z = self.wiper_z - current_z_offset
 
         script = [
-            f"M104 S{bed_temp:.1f}",                            # Греем стол
+            f"M140 S{bed_temp:.1f}",                            # Греем стол
             f"M104 S{slot_config.get('temp'):.3f} T{t}",        # Греем сопло
             f"_T_IN T={t}",                                     # Берем сопло
             "G1 X250 F12000",                                   # Идем в корзину
