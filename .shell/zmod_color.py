@@ -1288,7 +1288,7 @@ class zmod_color:
         # Формируем и выполняем последовательность G-code команд
         script = [
             "SET_VELOCITY_LIMIT ACCEL=8000",
-            "SET_GCODE_OFFSET X=0 Y=0 MOVE=1 MOVE_SPEED=100",
+            "_SET_GCODE_OFFSET_FAST X=0 Y=0 MOVE=1 MOVE_SPEED=100",
             "G1 X250 F30000",
             f"G1 Y{park_y:.3f}",
             "G1 X280",
@@ -1298,8 +1298,8 @@ class zmod_color:
             f"G1 X{park_x_minus_20:.3f} F4800",
             "MOTOR_GRAB2",
             "G1 X250 F1500",
-            f"SET_GCODE_OFFSET X={calc_offset_x:.3f} Y={calc_offset_y:.3f} MOVE=1 MOVE_SPEED=100",
-            f"SET_GCODE_OFFSET Z={calc_offset_z:.3f} MOVE=1 MOVE_SPEED=40 FROM=_T_IN",
+            f"_SET_GCODE_OFFSET_FAST X={calc_offset_x:.3f} Y={calc_offset_y:.3f} MOVE=1 MOVE_SPEED=100",
+            f"_SET_GCODE_OFFSET_FAST Z={calc_offset_z:.3f} MOVE=1 MOVE_SPEED=40 FROM=_T_IN",
             "MOTOR_STOP",
             "SET_VELOCITY_LIMIT ACCEL=20000",
             "M400"
@@ -1390,7 +1390,7 @@ class zmod_color:
 
         script = [
             "SET_VELOCITY_LIMIT ACCEL=8000",
-            "SET_GCODE_OFFSET X=0 Y=0 MOVE=1 MOVE_SPEED=100",
+            "_SET_GCODE_OFFSET_FAST X=0 Y=0 MOVE=1 MOVE_SPEED=100",
             "G1 X250 F30000.000",
             f"G1 Y{park_y:.3f}",
             f"G1 X{park_x_minus_10:.3f}",
@@ -1408,7 +1408,7 @@ class zmod_color:
             self.gcode.run_script_from_command("G91")
 
         if 'z' in homed_axes:
-            self.gcode.run_script_from_command("SET_GCODE_OFFSET Z=0 MOVE=1 MOVE_SPEED=100 FROM=_T_OUT\nM400")
+            self.gcode.run_script_from_command("_SET_GCODE_OFFSET_FAST Z=0 MOVE=1 MOVE_SPEED=100 FROM=_T_OUT\nM400")
         else:
             if active_mesh:
                 self.gcode.run_script_from_command(f"BED_MESH_PROFILE LOAD={active_mesh} FROM=_T_OUT")
