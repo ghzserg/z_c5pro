@@ -2425,7 +2425,7 @@ class zmod_color:
         if not is_absolute:
             self.gcode.run_script_from_command("G90")
 
-        current_z_offset = move_status.get('homing_offsets', [0.0, 0.0, 0.0])[2]
+        current_z_offset = self.gcode_move.homing_position[2]
         wiper_z = self.wiper_z - current_z_offset
 
         script = [
@@ -2504,7 +2504,7 @@ class zmod_color:
             raise gcmd.error(f"Ошибка чтения extruder.json: {str(e)}")
 
         move_status = self.gcode_move.get_status(self.printer.get_reactor().monotonic())
-        current_klipper_offset_z = move_status.get('homing_offsets', [0.0, 0.0, 0.0])[2]
+        current_klipper_offset_z = self.gcode_move.homing_position[2]
 
         if z_param is not None:
             target_absolute_z = z_param
