@@ -2431,7 +2431,7 @@ class zmod_color:
             f"G1 Y{slot_config.get('trash_y'):.3f} F24000",
             f"G1 X{slot_config.get('trash_x'):.3f} F2400",
             "M400",
-            f"_WAIT_TEMP T={t} EXTRUDER_TEMP={slot_config.get('temp'):.3f} BED_TEMP=0 FROM=_T_PREPARE"
+            f"_WAIT_TEMP T={t} EXTRUDER_TEMP={slot_config.get('temp'):.3f} BED_TEMP=0 FROM=_T_PREPARE",
             "SET_FAN_SPEED FAN=chamber_fan SPEED=0.000",        # Сливаем пластик
             "G92 E0",
             f"G1 E{slot_config.get('filament_drop_length'):.3f} F240",
