@@ -1174,8 +1174,8 @@ class zmod_color:
             self.gcode.run_script_from_command("G90")
 
         current_z = move_status.get('gcode_position', [0, 0, 0])[2]
-        if current_z < 10.0:
-            self.gcode.run_script_from_command("G1 Z10.000 F1200\nM400")
+        if current_z < 5.0:
+            self.gcode.run_script_from_command("G1 Z5.000 F1200\nM400")
 
         saved_last_position = target_state['last_position']
         saved_base_position = target_state['base_position']
@@ -1283,8 +1283,8 @@ class zmod_color:
             self.gcode.run_script_from_command("G90")
 
         current_z = move_status.get('gcode_position', [0, 0, 0])[2]
-        if current_z < 10.0:
-            self.gcode.run_script_from_command("G1 Z10.000 F1200\nM400")
+        if current_z < 5.0:
+            self.gcode.run_script_from_command("G1 Z5.000 F1200\nM400")
 
         # Формируем и выполняем последовательность G-code команд
         script = [
@@ -1320,6 +1320,7 @@ class zmod_color:
     def cmd_T_OUT(self, gcmd):
         silent = gcmd.get_int('SILENT', 1)
         heater_off = gcmd.get_int('HEATER_OFF', 0)
+        no_z = gcmd.get_int('NO_Z', 1)
         save_t = gcmd.get_int('SAVE_T', 0)
         save_t_temp = gcmd.get_int('SAVE_T_TEMP', 0)
 
@@ -1379,8 +1380,8 @@ class zmod_color:
 
         if 'z' in homed_axes:
             current_z = move_status.get('gcode_position', [0, 0, 0])[2]
-            if current_z < 10.0:
-                self.gcode.run_script_from_command("G1 Z10.000 F1200\nM400")
+            if current_z < 5.0:
+                self.gcode.run_script_from_command("G1 Z5.000 F1200\nM400")
         else:
             active_mesh = self._get_active_mesh_profile()
             if active_mesh:
@@ -1408,7 +1409,7 @@ class zmod_color:
         if not is_absolute:
             self.gcode.run_script_from_command("G91")
 
-        if 'z' in homed_axes:
+        if 'z' in homed_axes and no_z == 0:
             self.gcode.run_script_from_command("_SET_GCODE_OFFSET_FAST Z=0 MOVE=1 MOVE_SPEED=100 FROM=_T_OUT\nM400")
         else:
             if active_mesh:
@@ -1450,10 +1451,10 @@ class zmod_color:
                         if self.get_current_channel() == int(slot['ID']):
                             prompt_text = f"Extruder: {self.get_current_channel()}: {slot['Material']}/{slot['Color']}"
                             if silent == 0:
-                                button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_T_OUT_ZCOLOR|primary|{slot['HEX']}"
+                                button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_T_OUT_ZCOLOR NO_Z=0|primary|{slot['HEX']}"
                             break
                 else:
-                    button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_T_OUT_ZCOLOR|primary"
+                    button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_T_OUT_ZCOLOR NO_Z=0|primary"
 
             if silent == 0:
                 gcmd.respond_raw(f"// action:prompt_text {prompt_text}")
@@ -2372,7 +2373,7 @@ class zmod_color:
                 f"G1 E{tube:.3f} F240",
                 "M400",
                 f"M104 S{slot_config.get('temp_wait'):.3f} T{zslot-1}",
-                "_T_OUT"
+                "_T_OUT NO_Z=0"
             ]
             self.gcode.run_script_from_command("\n".join(script))
 
