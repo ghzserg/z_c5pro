@@ -2451,7 +2451,8 @@ class zmod_color:
             f"G1 Y{self.wiper_y:.3f} F24000",
             f"G1 X{self.wiper_x:.3f} F6000",
             f"G1 Z{wiper_z:.3f} F600",
-            "M400"
+            "M400",
+            "M114"
         ]
         self.gcode.run_script_from_command("\n".join(script))
 
