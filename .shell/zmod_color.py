@@ -1411,8 +1411,9 @@ class zmod_color:
         if not is_absolute:
             self.gcode.run_script_from_command("G91")
 
-        if 'z' in homed_axes and no_z == 0:
-            self.gcode.run_script_from_command("_SET_GCODE_OFFSET_FAST Z=0 MOVE=1 MOVE_SPEED=100 FROM=_T_OUT\nM400")
+        if 'z' in homed_axes:
+            if no_z != 1:
+                self.gcode.run_script_from_command("_SET_GCODE_OFFSET_FAST Z=0 MOVE=1 MOVE_SPEED=100 FROM=_T_OUT\nM400")
         else:
             if active_mesh:
                 self.gcode.run_script_from_command(f"BED_MESH_PROFILE LOAD={active_mesh} FROM=_T_OUT")
@@ -1453,10 +1454,10 @@ class zmod_color:
                         if self.get_current_channel() == int(slot['ID']):
                             prompt_text = f"Extruder: {self.get_current_channel()}: {slot['Material']}/{slot['Color']}"
                             if silent == 0:
-                                button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_T_OUT_ZCOLOR NO_Z=0|primary|{slot['HEX']}"
+                                button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_T_OUT_ZCOLOR|primary|{slot['HEX']}"
                             break
                 else:
-                    button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_T_OUT_ZCOLOR NO_Z=0|primary"
+                    button_text = f"// action:prompt_button {self._t('remove_from_extruder')}|_T_OUT_ZCOLOR|primary"
 
             if silent == 0:
                 gcmd.respond_raw(f"// action:prompt_text {prompt_text}")
