@@ -1122,6 +1122,7 @@ class zmod_color:
 
         gcmd.respond_raw(f"// Door: {door_state}")
         gcmd.respond_raw(f"// Top: {top_state}")
+        gcmd.respond_raw(f"// Offset: X={self.gcode_move.homing_position[0]} Y={self.gcode_move.homing_position[1]} Z={self.gcode_move.homing_position[2]}")
 
     def cmd_T_G28(self, gcmd):
         params = gcmd.get_command_parameters()
