@@ -2425,8 +2425,8 @@ class zmod_color:
 
         script = [
             f"M104 S{bed_temp:.1f}",                            # Греем стол
-            f"M104 S{slot_config.get('temp'):.3f} T{t}",            # Греем сопло
-            f"_T_IN T={t_start}",                               # Берем сопло
+            f"M104 S{slot_config.get('temp'):.3f} T{t}",        # Греем сопло
+            f"_T_IN T={t}",                                     # Берем сопло
             "G1 X250 F12000",                                   # Идем в корзину
             f"G1 Y{slot_config.get('trash_y'):.3f} F24000",
             f"G1 X{slot_config.get('trash_x'):.3f} F2400",
@@ -2440,7 +2440,7 @@ class zmod_color:
             "G92 E0",
             "G1 E-5 F240",
             "M400",
-            f"SDCARD_SET_CHANNEL CHANNEL={t_start}",
+            f"SDCARD_SET_CHANNEL CHANNEL={t}",
             "M400",
             "G1 X250 F6000",                                    # Идем к резинке
             f"G1 Y{self.wiper_y:.3f} F24000",
@@ -2464,6 +2464,8 @@ class zmod_color:
 
         if full == 1:
             self.gcode.run_script_from_command("_T_OUT")
+        else:
+            self.gcode.run_script_from_command(f"SDCARD_SET_CHANNEL CHANNEL={t}")
 
         if not is_absolute:
             self.gcode.run_script_from_command("G91")
