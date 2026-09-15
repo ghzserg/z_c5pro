@@ -625,7 +625,7 @@ class zmod_color:
         self.plate_z = config.getfloat('plate_z', 0.061)        # Толщина платы по Z
         self.wiper_x = config.getfloat('wiper_x', 266.50)       # Координаты места для очистки сопла
         self.wiper_y = config.getfloat('wiper_y', 13.80)
-        self.wiper_z = config.getfloat('wiper_z', 1)
+        self.wiper_z = config.getfloat('wiper_z', 2)
 
         temp_defaults = {
             "PLA":      {"temp": 220, "temp_manual": 250, "temp_wait": 120},
