@@ -677,6 +677,7 @@ class zmod_color:
         self.gcode.register_command('_T_G28', self.cmd_T_G28)             # Защищенный G28
         self.gcode.register_command('_T_RESTORE', self.cmd_T_RESTORE)     # Восстновить сохраненный экструдер
         self.gcode.register_command('_T_PREPARE', self.cmd_T_PREPARE)     # Прогреть и подготовить экструдер
+        self.gcode.register_command('_T_SET_GCODE_OFFSET', self.cmd_T_SET_GCODE_OFFSET) # Сохранить Z-Offset
 
         self.printer.register_event_handler("klippy:ready", self._handle_ready)
 
@@ -2472,6 +2473,60 @@ class zmod_color:
 
         if not is_absolute:
             self.gcode.run_script_from_command("G91")
+
+    def cmd_T_SET_GCODE_OFFSET(self, gcmd):
+        active_t = self._get_active_extruder(None)
+        if active_t < 0:
+            gcmd.respond_info("Регулировка Z-Offset пропущена: экструдер не в голове или неопределен.")
+            return
+
+        z_param = gcmd.get_float('Z', None)
+        z_adjust_param = gcmd.get_float('Z_ADJUST', None)
+
+        if z_param is None and z_adjust_param is None:
+            return
+
+        try:
+            with open(FFCONFIG + 'zoffset.json', 'r', encoding='utf-8') as file:
+                raw = file.read()
+                clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
+                z_cfg = json.loads(clean)
+        except Exception as e:
+            raise gcmd.error(f"Ошибка чтения zoffset.json: {str(e)}")
+
+        try:
+            with open(FFCONFIG + 'extruder.json', 'r') as file:
+                raw_ext = file.read()
+                clean_ext = re.sub(r'/\*.*?\*/', '', raw_ext, flags=re.DOTALL)
+                ext_cfg = json.loads(clean_ext)
+        except Exception as e:
+            raise gcmd.error(f"Ошибка чтения extruder.json: {str(e)}")
+
+        move_status = self.gcode_move.get_status(self.printer.get_reactor().monotonic())
+        current_klipper_offset_z = move_status.get('homing_offsets', [0.0, 0.0, 0.0])[2]
+
+        if z_param is not None:
+            target_absolute_z = z_param
+        else:
+            target_absolute_z = current_klipper_offset_z + z_adjust_param
+
+        try:
+            tn_z = float(ext_cfg[f"t{active_t}_offset_z"])
+            z_station_pos = float(ext_cfg.get("z_station_pos", -1.78))
+        except KeyError as e:
+            raise gcmd.error(f"В extruder.json отсутствует калибровочный параметр: {str(e)}")
+
+        base_calculated_z = tn_z - z_station_pos + self.plate_z
+        new_file_z_offset = target_absolute_z - base_calculated_z
+        key_name = f"z_offset_t{active_t + 1}"
+        z_cfg[key_name] = round(new_file_z_offset, 4)
+
+        try:
+            new_json_str = json.dumps(z_cfg, indent=3)
+            with open(file_path, 'w', encoding='utf-8') as file:
+                file.write(new_json_str + "\n/* Printer zoffset Config */")
+        except Exception as e:
+            raise gcmd.error(f"Ошибка записи в zoffset.json: {str(e)}")
 
 def load_config(config):
     return zmod_color(config)
