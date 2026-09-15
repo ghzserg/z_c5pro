@@ -2520,7 +2520,7 @@ class zmod_color:
         base_calculated_z = tn_z - z_station_pos + self.plate_z
         new_file_z_offset = target_absolute_z - base_calculated_z
         key_name = f"z_offset_t{active_t + 1}"
-        z_cfg[key_name] = round(new_file_z_offset, 4)
+        z_cfg[key_name] = round(new_file_z_offset, 3)
 
         try:
             new_json_str = json.dumps(z_cfg, indent=3)
