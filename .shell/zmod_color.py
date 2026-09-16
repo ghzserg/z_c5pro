@@ -2460,8 +2460,8 @@ class zmod_color:
             f"SDCARD_SET_CHANNEL CHANNEL={t}",
             "M400",
             "G1 X250 F6000",                                    # Идем к резинке
-            f"G1 Y{slot_config.get('self.wiper_y'):.3f} F24000",
-            f"G1 X{slot_config.get('self.wiper_x'):.3f} F6000",
+            f"G1 Y{slot_config.get('wiper_y'):.3f} F24000",
+            f"G1 X{slot_config.get('wiper_x'):.3f} F6000",
             f"G1 Z{wiper_z:.3f} F600",
             "M400",
             "M114"
