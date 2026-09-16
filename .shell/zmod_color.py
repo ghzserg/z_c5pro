@@ -19,6 +19,9 @@ DEFAULT_FILAMENT_SETTINGS = {
     "filament_drop_length": 50,         # Длина продувки перед печатью
     "trash_x": 275.0,                   # Координата корзины X
     "trash_y": 254.0,                   # Координата корзины Y
+    "wiper_x", 266.50,                  # Координаты места для очистки сопла
+    "wiper_y", 13.80,
+    "wiper_z", 2,
     "fan_speed": 255.0                  # Скорость работы вентилятора при остывании
 }
 
@@ -623,9 +626,6 @@ class zmod_color:
         self.display = config.getboolean('display', True)
         self.lang = 'en'
         self.plate_z = config.getfloat('plate_z', 0.061)        # Толщина платы по Z
-        self.wiper_x = config.getfloat('wiper_x', 266.50)       # Координаты места для очистки сопла
-        self.wiper_y = config.getfloat('wiper_y', 13.80)
-        self.wiper_z = config.getfloat('wiper_z', 2)
 
         temp_defaults = {
             "PLA":      {"temp": 220, "temp_manual": 250, "temp_wait": 120},
@@ -2438,7 +2438,7 @@ class zmod_color:
             self.gcode.run_script_from_command("G90")
 
         current_z_offset = self.gcode_move.homing_position[2]
-        wiper_z = self.wiper_z - current_z_offset
+        wiper_z = slot_config.get('wiper_z') - current_z_offset
 
         script = [
             f"M140 S{bed_temp:.1f}",                            # Греем стол
@@ -2460,8 +2460,8 @@ class zmod_color:
             f"SDCARD_SET_CHANNEL CHANNEL={t}",
             "M400",
             "G1 X250 F6000",                                    # Идем к резинке
-            f"G1 Y{self.wiper_y:.3f} F24000",
-            f"G1 X{self.wiper_x:.3f} F6000",
+            f"G1 Y{slot_config.get('self.wiper_y'):.3f} F24000",
+            f"G1 X{slot_config.get('self.wiper_x'):.3f} F6000",
             f"G1 Z{wiper_z:.3f} F600",
             "M400",
             "M114"
