@@ -736,10 +736,12 @@ class zmod_color:
 
     def temp_z_offset(self):
         if self.macro_obj is not None:
-            variables = getattr(self.macro_obj, 'runtime_variables', {})
-            return variables.get('temp_z_offset', 0.0)
+            variables = getattr(self.macro_obj, 'variables', {})
+            try:
+                return float(variables.get('temp_z_offset', 0.0))
+            except (TypeError, ValueError):
+                return 0.0
         return 0.0
-
 
     def upgrade_filament_json(self):
         existing_file_data = {}
