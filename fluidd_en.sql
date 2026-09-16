@@ -977,14 +977,6 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('main
             },
             {
                "color" : "group",
-               "name" : "LOAD_GCODE_OFFSET",
-               "pos" : 8,
-               "showInPause" : true,
-               "showInPrinting" : true,
-               "showInStandby" : true
-            },
-            {
-               "color" : "group",
                "name" : "NOZZLE_CONTROL",
                "pos" : 9,
                "showInPause" : false,
