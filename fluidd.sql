@@ -565,15 +565,6 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('flui
             "visible": true
         },
         {
-            "alias": "Восстановить Z-offset",
-            "categoryId": "244d667b-c410-4e01-9bf1-e8e0b9deabe2",
-            "color": "",
-            "disabledWhilePrinting": false,
-            "name": "load_gcode_offset",
-            "order": 8,
-            "visible": true
-        },
-        {
             "alias": "",
             "categoryId": "244d667b-c410-4e01-9bf1-e8e0b9deabe2",
             "color": "",
