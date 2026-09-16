@@ -677,7 +677,7 @@ class zmod_color:
         self.gcode.register_command('_T_RESTORE', self.cmd_T_RESTORE)     # Восстновить сохраненный экструдер
         self.gcode.register_command('_T_PREPARE', self.cmd_T_PREPARE)     # Прогреть и подготовить экструдер
         self.gcode.register_command('_T_SET_GCODE_OFFSET', self.cmd_T_SET_GCODE_OFFSET) # Сохранить Z-Offset
-        self.gcode.register_command('_T_CHANGE_FILAMENT', self.cmd_CHANGE_FILAMENT)     # Сменить филамент
+        self.gcode.register_command('_T_CHANGE_FILAMENT', self.cmd_T_CHANGE_FILAMENT)     # Сменить филамент
 
         self.printer.register_event_handler("klippy:ready", self._handle_ready)
 
@@ -2485,7 +2485,7 @@ class zmod_color:
         except Exception as e:
             raise gcmd.error(f"Ошибка записи в zoffset.json: {str(e)}")
 
-    def cmd_CHANGE_FILAMENT(self, gcmd):
+    def cmd_T_CHANGE_FILAMENT(self, gcmd):
         t = gcmd.get_int('T', None)
         if t is None or t < 0 or t > 3:
             raise gcmd.error("Error: T parameter is required")
