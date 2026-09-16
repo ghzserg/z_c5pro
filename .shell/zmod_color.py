@@ -1219,8 +1219,8 @@ class zmod_color:
 
         active_t = self._get_active_extruder(gcmd)
 
-        if active_t == t_index:
-            gcmd.respond_info(f"T{active_t} in Head. Skeep...")
+        if active_t == t_index and 'z' in homed_axes:
+            gcmd.respond_info(f"T{active_t} in Head. Skip...")
             return
 
         if active_t != -1:
