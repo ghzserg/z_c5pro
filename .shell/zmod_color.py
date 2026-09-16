@@ -2490,7 +2490,7 @@ class zmod_color:
         if t is None or t < 0 or t > 3:
             raise gcmd.error("Error: T parameter is required")
 
-        gcmd.respond_raw(f"// T{t}")
+        gcmd.respond_raw(f"info T{t}")
 
         try:
             self.gcode.run_script_from_command(f"_B_CHANGE_FILAMENT")
