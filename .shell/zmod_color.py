@@ -677,6 +677,7 @@ class zmod_color:
         self.gcode.register_command('_T_RESTORE', self.cmd_T_RESTORE)     # Восстновить сохраненный экструдер
         self.gcode.register_command('_T_PREPARE', self.cmd_T_PREPARE)     # Прогреть и подготовить экструдер
         self.gcode.register_command('_T_SET_GCODE_OFFSET', self.cmd_T_SET_GCODE_OFFSET) # Сохранить Z-Offset
+        self.gcode.register_command('_T_CHANGE_FILAMENT', self.cmd_CHANGE_FILAMENT)     # Сменить филамент
 
         self.printer.register_event_handler("klippy:ready", self._handle_ready)
 
@@ -732,14 +733,6 @@ class zmod_color:
         self.fm_sensors = [self.printer.lookup_object(f"filament_motion_sensor fm_ex{i}", None) for i in range(4)]
 
         self.macro_obj = self.printer.lookup_object('gcode_macro _TEST_POINT', None)
-
-    def _print_hint(self):
-        try:
-            if self.virtual_sd and self.virtual_sd.get_status(self.printer.get_reactor().monotonic()).get('is_active', False):
-                return " Выполните CONTINUE для восстановления." if self.lang == 'ru' else " Run CONTINUE to restore."
-        except:
-            pass
-        return ""
 
     def temp_z_offset(self):
         if self.macro_obj is not None:
@@ -1073,11 +1066,11 @@ class zmod_color:
 
         if len(not_home_indices) > 1:
             if gcmd:
-                raise gcmd.error(f"Больше 1 экструдера не дома! {not_home_indices}" + self._print_hint())
+                raise gcmd.error(f"Больше 1 экструдера не дома! {not_home_indices}")
             return -2
         if len(on_head_indices) > 1:
             if gcmd:
-                raise gcmd.error(f"Больше 1 экструдера на голове! {on_head_indices}" + self._print_hint())
+                raise gcmd.error(f"Больше 1 экструдера на голове! {on_head_indices}")
             return -2
 
         # Все дома, голова пуста
@@ -1097,12 +1090,12 @@ class zmod_color:
             else:
                 self.active_tool_id = -2
                 if gcmd:
-                    raise gcmd.error(f"Рассинхрон датчиков: Экструдер {not_home_indices[0]} не дома, но датчик головы видит Экструдер {on_head_indices[0]}!" + self._print_hint())
+                    raise gcmd.error(f"Рассинхрон датчиков: Экструдер {not_home_indices[0]} не дома, но датчик головы видит Экструдер {on_head_indices[0]}!")
                 return -2
 
         self.active_tool_id = -2
         if gcmd:
-            raise gcmd.error(f"Ошибка датчиков: Не дома {not_home_indices}. На голове: {on_head_indices}." + self._print_hint())
+            raise gcmd.error(f"Ошибка датчиков: Не дома {not_home_indices}. На голове: {on_head_indices}.")
         return -2
 
     def cmd_T_STATUS(self, gcmd):
@@ -1186,7 +1179,7 @@ class zmod_color:
         target_state = saved_states.get('_T_TOOL_STATE', None)
 
         if target_state is None:
-            raise gcmd.error("Критическая ошибка: Сохраненное состояние _T_TOOL_STATE не найдено в Klipper!" + self._print_hint())
+            raise gcmd.error("Критическая ошибка: Сохраненное состояние _T_TOOL_STATE не найдено в Klipper!")
 
         move_status = self.gcode_move.get_status(self.printer.get_reactor().monotonic())
         is_absolute = move_status.get('absolute_coordinates', True)
@@ -1216,7 +1209,7 @@ class zmod_color:
     def cmd_T_IN(self, gcmd):
         t_index = gcmd.get_int('T', None)
         if t_index is None or t_index < 0 or t_index > 3:
-            raise gcmd.error("Error: T parameter is required and must be between -1 and 3" + self._print_hint())
+            raise gcmd.error("Error: T parameter is required and must be between -1 and 3")
         silent = gcmd.get_int('SILENT', 1)
 
         homed_axes = self.toolhead.get_status(self.printer.get_reactor().monotonic()).get('homed_axes', '').lower()
@@ -1233,13 +1226,13 @@ class zmod_color:
         if active_t != -1:
             if silent == 0:
                 self.active_tool_id = -2
-                raise gcmd.error(f"Невозможно взять T{t_index}. Каретка занята экструдером T{active_t}! Сначала вызовите _T_OUT." + self._print_hint())
+                raise gcmd.error(f"Невозможно взять T{t_index}. Каретка занята экструдером T{active_t}! Сначала вызовите _T_OUT.")
             else:
                 self.cmd_T_OUT(gcmd)
                 active_t = self._get_active_extruder(gcmd)
                 if active_t != -1:
                     self.active_tool_id = -2
-                    raise gcmd.error(f"Невозможно взять T{t_index}. Каретка занята экструдером T{active_t}! Сначала вызовите _T_OUT." + self._print_hint())
+                    raise gcmd.error(f"Невозможно взять T{t_index}. Каретка занята экструдером T{active_t}! Сначала вызовите _T_OUT.")
 
         if 'z' not in homed_axes:
             self.gcode.run_script_from_command("G28.1 Z\nM400")
@@ -1250,7 +1243,7 @@ class zmod_color:
                 clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
                 ext_cfg = json.loads(clean)
         except Exception as e:
-            raise gcmd.error(f"Error reading extruder.json: {str(e)}" + self._print_hint())
+            raise gcmd.error(f"Error reading extruder.json: {str(e)}")
 
         try:
             with open(FFCONFIG + 'zoffset.json', 'r') as file:
@@ -1258,7 +1251,7 @@ class zmod_color:
                 clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
                 z_cfg = json.loads(clean)
         except Exception as e:
-            raise gcmd.error(f"Error reading zoffset.json: {str(e)}" + self._print_hint())
+            raise gcmd.error(f"Error reading zoffset.json: {str(e)}")
 
         # Извлекаем базовые калибровочные значения смещений сопел
         try:
@@ -1272,7 +1265,7 @@ class zmod_color:
 
             z_station_pos = float(ext_cfg.get("z_station_pos", -1.78))
         except KeyError as e:
-            raise gcmd.error(f"Missing offset variable in extruder.json: {str(e)}" + self._print_hint())
+            raise gcmd.error(f"Missing offset variable in extruder.json: {str(e)}")
 
         # Извлекаем ручной z_offset_tX (z_offset_t1 для T0, z_offset_t2 для T1 и т.д.)
         try:
@@ -1292,7 +1285,7 @@ class zmod_color:
             park_x = float(ext_cfg[f"x_check_pos{suffix}"])
             park_y = float(ext_cfg[f"y_check_pos{suffix}"])
         except KeyError as e:
-            raise gcmd.error(f"Missing park position variable in extruder.json: {str(e)}" + self._print_hint())
+            raise gcmd.error(f"Missing park position variable in extruder.json: {str(e)}")
 
         # Вычисляем координату безопасного отхода (X_park - 20)
         park_x_minus_20 = park_x - 20.0
@@ -1334,7 +1327,7 @@ class zmod_color:
         active_t = self._get_active_extruder(gcmd)
         if active_t != t_index:
             self.active_tool_id = -2
-            raise gcmd.error(f"Неверный экструдер в голове. Должен быть T{t_index} != T{active_t}" + self._print_hint())
+            raise gcmd.error(f"Неверный экструдер в голове. Должен быть T{t_index} != T{active_t}")
 
     # Вернуть экструдер на место
     def cmd_T_OUT(self, gcmd):
@@ -1382,7 +1375,7 @@ class zmod_color:
                 clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
                 ext_cfg = json.loads(clean)
         except Exception as e:
-            raise gcmd.error(f"Error reading extruder.json: {str(e)}" + self._print_hint())
+            raise gcmd.error(f"Error reading extruder.json: {str(e)}")
 
         # Извлекаем абсолютные координаты парковочного кармана
         # Для T0 ключи без индекса, для остальных — с индексом N
@@ -1391,7 +1384,7 @@ class zmod_color:
             park_x = float(ext_cfg[f"x_check_pos{suffix}"])
             park_y = float(ext_cfg[f"y_check_pos{suffix}"])
         except KeyError as e:
-            raise gcmd.error(f"Missing park position variable in extruder.json: {str(e)}" + self._print_hint())
+            raise gcmd.error(f"Missing park position variable in extruder.json: {str(e)}")
 
         move_status = self.gcode_move.get_status(self.printer.get_reactor().monotonic())
         is_absolute = move_status.get('absolute_coordinates', True)
@@ -1440,7 +1433,7 @@ class zmod_color:
         active_t = self._get_active_extruder(gcmd)
         if active_t != -1:
             self.active_tool_id = -2
-            raise gcmd.error(f"Экструдер T{active_t} не снят с головы." + self._print_hint())
+            raise gcmd.error(f"Экструдер T{active_t} не снят с головы.")
 
         # Восстановление физических координат
         if save_t == 1:
@@ -2456,7 +2449,7 @@ class zmod_color:
                 clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
                 z_cfg = json.loads(clean)
         except Exception as e:
-            raise gcmd.error(f"Ошибка чтения zoffset.json: {str(e)}" + self._print_hint())
+            raise gcmd.error(f"Ошибка чтения zoffset.json: {str(e)}")
 
         try:
             with open(FFCONFIG + 'extruder.json', 'r') as file:
@@ -2464,7 +2457,7 @@ class zmod_color:
                 clean_ext = re.sub(r'/\*.*?\*/', '', raw_ext, flags=re.DOTALL)
                 ext_cfg = json.loads(clean_ext)
         except Exception as e:
-            raise gcmd.error(f"Ошибка чтения extruder.json: {str(e)}" + self._print_hint())
+            raise gcmd.error(f"Ошибка чтения extruder.json: {str(e)}")
 
         move_status = self.gcode_move.get_status(self.printer.get_reactor().monotonic())
         current_klipper_offset_z = self.gcode_move.homing_position[2]
@@ -2478,7 +2471,7 @@ class zmod_color:
             tn_z = float(ext_cfg[f"t{active_t}_offset_z"])
             z_station_pos = float(ext_cfg.get("z_station_pos", -1.78))
         except KeyError as e:
-            raise gcmd.error(f"В extruder.json отсутствует калибровочный параметр: {str(e)}" + self._print_hint())
+            raise gcmd.error(f"В extruder.json отсутствует калибровочный параметр: {str(e)}")
 
         base_calculated_z = tn_z - z_station_pos + self.plate_z + self.temp_z_offset()
         new_file_z_offset = target_absolute_z - base_calculated_z
@@ -2490,7 +2483,30 @@ class zmod_color:
             with open(FFCONFIG + 'zoffset.json', 'w', encoding='utf-8') as file:
                 file.write(new_json_str + "\n/* Printer zoffset Config */")
         except Exception as e:
-            raise gcmd.error(f"Ошибка записи в zoffset.json: {str(e)}" + self._print_hint())
+            raise gcmd.error(f"Ошибка записи в zoffset.json: {str(e)}")
+
+    def cmd_CHANGE_FILAMENT(self, gcmd):
+        t = gcmd.get_int('T', None)
+        if t is None or t < 0 or t > 3:
+            raise gcmd.error("Error: T parameter is required")
+
+        gcmd.respond_raw(f"// T{t}")
+
+        try:
+            self.gcode.run_script_from_command(f"_B_CHANGE_FILAMENT")
+        except Exception as e:
+            if self.lang == 'ru':
+                msg = f"!! Ошибка при смене филамента: {str(e)}\nВстаю на паузу"
+            else:
+                msg = f"!! Filament change error: {str(e)}\nPausing print"
+            gcmd.respond_raw(f"{msg}")
+            gcmd.respond_raw(f"tgalarm_photo {msg}")
+            #pause_resume = self.printer.lookup_object('pause_resume')
+            #pause_resume.send_pause_command()
+            try:
+                self.gcode.run_script_from_command("PAUSE")
+            except Exception as e2:
+                gcmd.respond_info(f"!! PAUSE error: {e2}.")
 
 def load_config(config):
     return zmod_color(config)
