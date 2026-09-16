@@ -2501,8 +2501,8 @@ class zmod_color:
                 msg = f"!! Filament change error: {str(e)}\nPausing print"
             gcmd.respond_raw(f"{msg}")
             gcmd.respond_raw(f"tgalarm_photo {msg}")
-            #pause_resume = self.printer.lookup_object('pause_resume')
-            #pause_resume.send_pause_command()
+            pause_resume = self.printer.lookup_object('pause_resume')
+            pause_resume.send_pause_command()
             try:
                 self.gcode.run_script_from_command("PAUSE")
             except Exception as e2:
