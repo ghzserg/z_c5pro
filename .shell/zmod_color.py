@@ -678,6 +678,7 @@ class zmod_color:
         self.gcode.register_command('_T_PREPARE', self.cmd_T_PREPARE)     # Прогреть и подготовить экструдер
         self.gcode.register_command('_T_SET_GCODE_OFFSET', self.cmd_T_SET_GCODE_OFFSET) # Сохранить Z-Offset
         self.gcode.register_command('_T_CHANGE_FILAMENT', self.cmd_T_CHANGE_FILAMENT)     # Сменить филамент
+        self.gcode.register_command('_T_FIND_ANALOG', self.cmd_T_FIND_ANALOG)   # Поиск аналогмичного прутка
 
         self.printer.register_event_handler("klippy:ready", self._handle_ready)
 
@@ -2397,8 +2398,6 @@ class zmod_color:
             "G92 E0",
             "G1 E-5 F240",
             "M400",
-            f"SDCARD_SET_CHANNEL CHANNEL={t}",
-            "M400",
             "G1 X250 F6000",                                    # Идем к резинке
             f"G1 Y{slot_config.get('wiper_y'):.3f} F24000",
             f"G1 X{slot_config.get('wiper_x'):.3f} F6000",
@@ -2504,6 +2503,100 @@ class zmod_color:
                 self.gcode.run_script_from_command("PAUSE")
             except Exception as e2:
                 gcmd.respond_info(f"!! PAUSE error: {e2}.")
+
+    def cmd_T_FIND_ANALOG(self, gcmd):
+        t_param = gcmd.get_int('T', None)
+        if t_param is None or t_param < 0 or t_param > 3:
+            raise gcmd.error("Error: T parameter is required and must be between 0 and 3")
+
+        gcmd.respond_raw(f"// Ищу аналог T{t_param}")
+        cmd_time = self.printer.get_reactor().monotonic()
+
+        try:
+            with open(FILE_CONFIG, 'r') as file:
+                tools = json.load(file)
+        except Exception as e:
+            raise gcmd.error(f"Ошибка чтения FILE_CONFIG: {str(e)}")
+
+        # Находим, какому логическому TG соответствует наш физический T
+        # В массиве хранятся значения (физический_T + 1)
+        current_tg = None
+        for tg_idx, tool_val in enumerate(tools):
+            if tool_val == (t_param + 1):
+                current_tg = tg_idx
+                break
+
+        if current_tg is None:
+            raise gcmd.error(f"Физический T{t_param} не найден в текущем массиве инструментов конфигурации")
+
+        # Читаем filament.json для определения типа и цвета пластика
+        file_path = FFCONFIG + 'filament.json'
+        try:
+            with open(file_path, 'r', encoding='utf-8') as file:
+                raw = file.read()
+            clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
+            filament_cfg = json.loads(clean)
+        except Exception as e:
+            raise gcmd.error(f"Ошибка чтения filament.json: {str(e)}")
+
+        target_type = filament_cfg.get(f"ex{t_param}_filament_type")
+        target_color = filament_cfg.get(f"ex{t_param}_filament_color")
+
+        # Ищем аналог среди остальных физических экструдеров
+        t_new = None
+        for i in range(4):
+            if i == t_param:
+                continue
+
+            # Проверяем совпадение типа и цвета
+            if filament_cfg.get(f"ex{i}_filament_type") == target_type and filament_cfg.get(f"ex{i}_filament_color") == target_color:
+                # Проверяем наличие филамента по датчику
+                has_filament = False
+                if i < len(self.fd_sensors) and self.fd_sensors[i] is not None:
+                    try:
+                        has_filament = bool(self.fd_sensors[i].get_status(cmd_time).get('filament_detected', False))
+                    except Exception:
+                        pass
+
+                if has_filament:
+                    t_new = i
+                    break
+
+        if t_new is not None:
+            gcmd.respond_raw(f"// найден аналог T{t_param} -> T{t_new}")
+
+            # Заменяем в массиве инструментов старый экструдер на новый
+            # Меняем значение во всех строках/элементах, где оно ссылалось на старую голову
+            for idx in range(len(tools)):
+                if tools[idx] == (t_param + 1):
+                    tools[idx] = t_new + 1
+
+            try:
+                with open(FILE_CONFIG, 'w') as file:
+                    json.dump(tools, file, indent=2)
+            except Exception as e:
+                raise gcmd.error(f"Ошибка перезаписи FILE_CONFIG: {str(e)}")
+
+            script = [
+                "SDCARD_NO_FILAMENT_CHECK_EX CHECK=0",
+                "SDCARD_SET_NEED_CHECK_EX CHECK=0",
+                "SDCARD_SET_GCODE_EX_USED_BASE INDEX=0 EXTRUDER=T0",
+                "SDCARD_SET_GCODE_EX_USED_BASE INDEX=1 EXTRUDER=T1",
+                "SDCARD_SET_GCODE_EX_USED_BASE INDEX=2 EXTRUDER=T2",
+                "SDCARD_SET_GCODE_EX_USED_BASE INDEX=3 EXTRUDER=T3",
+            ]
+            for idx in range(4):
+                tool_val = tools[idx] if idx < len(tools) else (idx + 1)
+                script.append(f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX={idx} EXTRUDER=T{tool_val-1}")
+
+            script += [
+                "SDCARD_SET_NEED_CHECK_EX CHECK=1",
+                f"_A_CHANGE_FILAMENT T_NEW={t_new}"
+            ]
+            self.gcode.run_script_from_command("\n".join(script))
+        else:
+            gcmd.respond_raw(f"// аналог для T{t_param} не найден")
+            self.gcode.run_script_from_command("PAUSE")
 
 def load_config(config):
     return zmod_color(config)
