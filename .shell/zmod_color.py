@@ -72,7 +72,7 @@ TRANSLATIONS = {
         'unload_error': "Ошибка выгрузки: {}",
         'unload_success': "Выгрузка начата",
         'unload': "Выгрузить",
-        'grab': "Взять
+        'grab': "Взять"
     },
     'en': {
         'auto_assign_no_color_match': "Auto-assignment: Couldn't match color for {}",
@@ -120,7 +120,7 @@ TRANSLATIONS = {
         'unload_error': "Unloading error: {}",
         'unload_success': "Unloading started",
         'unload': "Unload",
-        'grab': "Grab
+        'grab': "Grab"
     },
     'de': {
         'auto_assign_no_color_match': "Autozuweisung: Farbe für {} nicht gefunden",
@@ -168,7 +168,7 @@ TRANSLATIONS = {
         'unload_error': "Fehler beim Entladen: {}",
         'unload_success': "Entladen gestartet",
         'unload': "Entladen",
-        'grab': "Greifen
+        'grab': "Greifen"
     },
     'fr': {
         'auto_assign_no_color_match': "Assignation auto : Impossible de faire correspondre la couleur pour {}",
@@ -216,7 +216,7 @@ TRANSLATIONS = {
         'unload_error': "Erreur de déchargement : {}",
         'unload_success': "Déchargement commencé",
         'unload': "Décharger",
-        'grab': "Saisir
+        'grab': "Saisir"
     },
     'it': {
         'auto_assign_no_color_match': "Assegnazione auto: Impossibile abbinare il colore per {}",
@@ -264,7 +264,7 @@ TRANSLATIONS = {
         'unload_error': "Errore di scaricamento: {}",
         'unload_success': "Scaricamento avviato",
         'unload': "Scarica",
-        'grab': "Prendi
+        'grab': "Prendi"
     },
     'es': {
         'auto_assign_no_color_match': "Asignación auto: No se pudo encontrar el color para {}",
@@ -312,7 +312,7 @@ TRANSLATIONS = {
         'unload_error': "Error de descarga: {}",
         'unload_success': "Descarga iniciada",
         'unload': "Descargar",
-        'grab': "Tomar
+        'grab': "Tomar"
     },
     'zh': {
         'auto_assign_no_color_match': "自动分配：无法匹配颜色 {}",
@@ -360,7 +360,7 @@ TRANSLATIONS = {
         'unload_error': "卸载错误：{}",
         'unload_success': "开始卸载",
         'unload': "卸载",
-        'grab': "抓取
+        'grab': "抓取"
     },
     'ja': {
         'auto_assign_no_color_match': "自動割当：{}の色が一致しません",
@@ -408,7 +408,7 @@ TRANSLATIONS = {
         'unload_error': "排出エラー：{}",
         'unload_success': "排出を開始",
         'unload': "排出する",
-        'grab': "掴む
+        'grab': "掴む"
     },
     'ko': {
         'auto_assign_no_color_match': "자동 할당: {}에 대한 색상을 찾을 수 없습니다",
@@ -456,7 +456,7 @@ TRANSLATIONS = {
         'unload_error': "언로드 오류: {}",
         'unload_success': "언로드 시작",
         'unload': "언로드",
-        'grab': "잡기
+        'grab': "잡기"
     },
     'pt': {
         'auto_assign_no_color_match': "Atribuição auto: Não foi possível corresponder a cor para {}",
@@ -504,7 +504,7 @@ TRANSLATIONS = {
         'unload_error': "Erro ao descarregar: {}",
         'unload_success': "Descarga iniciada",
         'unload': "Descarregar",
-        'grab': "Pegar
+        'grab': "Pegar"
     },
     "cs": {
         'auto_assign_no_color_match': "Auto-přiřazení: Nepodařilo se shodovat barvu pro {}",
@@ -552,7 +552,7 @@ TRANSLATIONS = {
         "unload_error": "Chyba vyndávání: {}",
         "unload_success": "Vyndávání spuštěno",
         "unload": "Vyndat",
-        'grab': "Uchopit
+        'grab': "Uchopit"
     },
     'tr': {
         'auto_assign_no_color_match': "Otomatik atama: {} için renk eşleşmedi",
@@ -600,7 +600,7 @@ TRANSLATIONS = {
         'unload_error': "Boşaltma hatası: {}",
         'unload_success': "Boşaltma başlatıldı",
         'unload': "Boşalt",
-        'grab': "Yakala
+        'grab': "Yakala"
     }
 }
 
@@ -786,6 +786,7 @@ class zmod_color:
         return self.save_filament_json(data, cleanup=True)
 
     def save_filament_json(self, data, cleanup=False):
+        """Оригинальная очищающая функция сохранения"""
         if cleanup:
             existing_file_data = {}
         else:
@@ -1973,7 +1974,7 @@ class zmod_color:
                     "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0",
                     "SET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0",
                     "SET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=0",
-                    "DISABLE_SENSOR",
+                    "DISABLE_SENSOR"
                     f"SET_PA_ADVANCE T0=99.0 T1=99.0 T2=99.0 T3=99.0 ENABLE={1 if autopa else 0}",
                     "SET_FAN_M106P2 ADJUSTED=0 FACTOR=0",
                     "SET_FAN_M106 ADJUSTED=0 FACTOR=0",
