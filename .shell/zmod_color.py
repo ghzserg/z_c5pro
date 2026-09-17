@@ -2591,7 +2591,7 @@ class zmod_color:
 
             script += [
                 "SDCARD_SET_NEED_CHECK_EX CHECK=1",
-                f"_A_CHANGE_FILAMENT T_NEW={t_new}"
+                f"_A_CHANGE_FILAMENT T={t_new}"
             ]
             self.gcode.run_script_from_command("\n".join(script))
         else:
