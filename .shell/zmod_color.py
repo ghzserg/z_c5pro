@@ -1973,10 +1973,7 @@ class zmod_color:
                     "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0",
                     "SET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0",
                     "SET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=0",
-                    "SET_FILAMENT_SENSOR SENSOR=fm_ex0 ENABLE=0",
-                    "SET_FILAMENT_SENSOR SENSOR=fm_ex1 ENABLE=0",
-                    "SET_FILAMENT_SENSOR SENSOR=fm_ex2 ENABLE=0",
-                    "SET_FILAMENT_SENSOR SENSOR=fm_ex3 ENABLE=0",
+                    "DISABLE_SENSOR"
                     f"SET_PA_ADVANCE T0=99.0 T1=99.0 T2=99.0 T3=99.0 ENABLE={1 if autopa else 0}",
                     "SET_FAN_M106P2 ADJUSTED=0 FACTOR=0",
                     "SET_FAN_M106 ADJUSTED=0 FACTOR=0",
