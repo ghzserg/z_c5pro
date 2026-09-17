@@ -2017,7 +2017,7 @@ class zmod_color:
                     "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0",
                     "SET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0",
                     "SET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=0",
-                    "DISABLE_SENSOR",
+                    "_DISABLE_SENSOR",
                     f"SET_PA_ADVANCE T0=99.0 T1=99.0 T2=99.0 T3=99.0 ENABLE={1 if autopa else 0}",
                     "SET_FAN_M106P2 ADJUSTED=0 FACTOR=0",
                     "SET_FAN_M106 ADJUSTED=0 FACTOR=0",
@@ -2360,10 +2360,10 @@ class zmod_color:
             if slot_config.get('filament_tube_length')>150.0:
                 script = [
                     "G92 E0",
-                    "DISABLE_SENSOR",
+                    "_DISABLE_SENSOR",
                     "G1 E150 F240",
                     "M400",
-                    "ENABLE_SENSOR"
+                    "_ENABLE_SENSOR"
                 ]
                 self.gcode.run_script_from_command("\n".join(script))
                 tube = slot_config.get('filament_tube_length') - 150.0
@@ -2371,10 +2371,10 @@ class zmod_color:
                 tube = slot_config.get('filament_tube_length')
 
             script = [
-                "DISABLE_SENSOR",
+                "_DISABLE_SENSOR",
                 f"G1 E{tube:.3f} F240",
                 "M400",
-                "ENABLE_SENSOR",
+                "_ENABLE_SENSOR",
                 f"M104 S{slot_config.get('temp_wait'):.3f} T{zslot-1}",
                 "_T_OUT NO_Z=0"
             ]
@@ -2438,17 +2438,17 @@ class zmod_color:
             "M400",
             f"_WAIT_TEMP T={t} EXTRUDER_TEMP={slot_config.get('temp'):.3f} BED_TEMP=0 FROM=_T_PREPARE",
             "SET_FAN_SPEED FAN=chamber_fan SPEED=0.000",        # Сливаем пластик
-            "DISABLE_SENSOR",
+            "_DISABLE_SENSOR",
             "G92 E0",
             f"G1 E{slot_config.get('filament_drop_length'):.3f} F240",
             "M400",
-            "ENABLE_SENSOR",
+            "_ENABLE_SENSOR",
             f"M106 P1 S{slot_config.get('fan_speed'):.3f}",
-            "DISABLE_SENSOR",
+            "_DISABLE_SENSOR",
             "G92 E0",
             "G1 E-5 F240",
             "M400",
-            "ENABLE_SENSOR",
+            "_ENABLE_SENSOR",
             "G1 X250 F6000",                                    # Идем к резинке
             f"G1 Y{slot_config.get('wiper_y'):.3f} F24000",
             f"G1 X{slot_config.get('wiper_x'):.3f} F6000",
