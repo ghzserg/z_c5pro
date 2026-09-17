@@ -1067,11 +1067,19 @@ class zmod_color:
 
         if len(not_home_indices) > 1:
             if gcmd:
-                raise gcmd.error(f"Больше 1 экструдера не дома! {not_home_indices}")
+                if self.lang == 'ru':
+                    msg = f"Больше 1 экструдера не дома! {not_home_indices}"
+                else:
+                    msg = f"More than 1 extruder not at home! {not_home_indices}"
+                raise gcmd.error(msg)
             return -2
         if len(on_head_indices) > 1:
             if gcmd:
-                raise gcmd.error(f"Больше 1 экструдера на голове! {on_head_indices}")
+                if self.lang == 'ru':
+                    msg = f"Больше 1 экструдера на голове! {on_head_indices}"
+                else:
+                    msg = f"More than 1 extruder on head! {on_head_indices}"
+                raise gcmd.error(msg)
             return -2
 
         # Все дома, голова пуста
@@ -1091,12 +1099,20 @@ class zmod_color:
             else:
                 self.active_tool_id = -2
                 if gcmd:
-                    raise gcmd.error(f"Рассинхрон датчиков: Экструдер {not_home_indices[0]} не дома, но датчик головы видит Экструдер {on_head_indices[0]}!")
+                    if self.lang == 'ru':
+                        msg = f"Рассинхрон датчиков: Экструдер {not_home_indices[0]} не дома, но датчик головы видит Экструдер {on_head_indices[0]}!"
+                    else:
+                        msg = f"Sensor mismatch: Extruder {not_home_indices[0]} is not at home, but head sensor sees Extruder {on_head_indices[0]}!"
+                    raise gcmd.error(msg)
                 return -2
 
         self.active_tool_id = -2
         if gcmd:
-            raise gcmd.error(f"Ошибка датчиков: Не дома {not_home_indices}. На голове: {on_head_indices}.")
+            if self.lang == 'ru':
+                msg = f"Ошибка датчиков: Не дома {not_home_indices}. На голове: {on_head_indices}."
+            else:
+                msg = f"Sensor error: Not at home {not_home_indices}. On head: {on_head_indices}."
+            raise gcmd.error(msg)
         return -2
 
     def cmd_T_STATUS(self, gcmd):
@@ -1170,7 +1186,11 @@ class zmod_color:
         if self.saved_extruder == -1:
             return
 
-        self.gcode.run_script_from_command(f"RESPOND MSG=\"Возврат экструдера T{self.saved_extruder}. Temp {self.saved_temperature:.1f}\"")
+        if self.lang == 'ru':
+            restore_msg = f"Возврат экструдера T{self.saved_extruder}. Temp {self.saved_temperature:.1f}"
+        else:
+            restore_msg = f"Restoring extruder T{self.saved_extruder}. Temp {self.saved_temperature:.1f}"
+        self.gcode.run_script_from_command(f"RESPOND MSG=\"{restore_msg}\"")
         self.gcode.run_script_from_command(f"_T_IN T={self.saved_extruder}")
 
         if self.saved_temperature > 0.0:
@@ -1180,7 +1200,11 @@ class zmod_color:
         target_state = saved_states.get('_T_TOOL_STATE', None)
 
         if target_state is None:
-            raise gcmd.error("Критическая ошибка: Сохраненное состояние _T_TOOL_STATE не найдено в Klipper!")
+            if self.lang == 'ru':
+                msg = "Критическая ошибка: Сохраненное состояние _T_TOOL_STATE не найдено в Klipper!"
+            else:
+                msg = "Critical error: Saved state _T_TOOL_STATE not found in Klipper!"
+            raise gcmd.error(msg)
 
         move_status = self.gcode_move.get_status(self.printer.get_reactor().monotonic())
         is_absolute = move_status.get('absolute_coordinates', True)
@@ -1227,13 +1251,21 @@ class zmod_color:
         if active_t != -1:
             if silent == 0:
                 self.active_tool_id = -2
-                raise gcmd.error(f"Невозможно взять T{t_index}. Каретка занята экструдером T{active_t}! Сначала вызовите _T_OUT.")
+                if self.lang == 'ru':
+                    msg = f"Невозможно взять T{t_index}. Каретка занята экструдером T{active_t}! Сначала вызовите _T_OUT."
+                else:
+                    msg = f"Cannot pick T{t_index}. Carriage is busy with extruder T{active_t}! Call _T_OUT first."
+                raise gcmd.error(msg)
             else:
                 self.cmd_T_OUT(gcmd)
                 active_t = self._get_active_extruder(gcmd)
                 if active_t != -1:
                     self.active_tool_id = -2
-                    raise gcmd.error(f"Невозможно взять T{t_index}. Каретка занята экструдером T{active_t}! Сначала вызовите _T_OUT.")
+                    if self.lang == 'ru':
+                        msg = f"Невозможно взять T{t_index}. Каретка занята экструдером T{active_t}! Сначала вызовите _T_OUT."
+                    else:
+                        msg = f"Cannot pick T{t_index}. Carriage is busy with extruder T{active_t}! Call _T_OUT first."
+                    raise gcmd.error(msg)
 
         if 'z' not in homed_axes:
             self.gcode.run_script_from_command("G28.1 Z\nM400")
@@ -1328,7 +1360,11 @@ class zmod_color:
         active_t = self._get_active_extruder(gcmd)
         if active_t != t_index:
             self.active_tool_id = -2
-            raise gcmd.error(f"Неверный экструдер в голове. Должен быть T{t_index} != T{active_t}")
+            if self.lang == 'ru':
+                msg = f"Неверный экструдер в голове. Должен быть T{t_index} != T{active_t}"
+            else:
+                msg = f"Wrong extruder on head. Should be T{t_index} != T{active_t}"
+            raise gcmd.error(msg)
 
     # Вернуть экструдер на место
     def cmd_T_OUT(self, gcmd):
@@ -1347,7 +1383,10 @@ class zmod_color:
 
         if t_index == -1:
             if silent == 0:
-                gcmd.respond_info("Каретка уже пуста, выгрузка не требуется.")
+                if self.lang == 'ru':
+                    gcmd.respond_info("Каретка уже пуста, выгрузка не требуется.")
+                else:
+                    gcmd.respond_info("Carriage is already empty, unload is not required.")
             return
 
         if heater_off == 1:
@@ -1434,7 +1473,11 @@ class zmod_color:
         active_t = self._get_active_extruder(gcmd)
         if active_t != -1:
             self.active_tool_id = -2
-            raise gcmd.error(f"Экструдер T{active_t} не снят с головы.")
+            if self.lang == 'ru':
+                msg = f"Экструдер T{active_t} не снят с головы."
+            else:
+                msg = f"Extruder T{active_t} not removed from head."
+            raise gcmd.error(msg)
 
         # Восстановление физических координат
         if save_t == 1:
@@ -2317,8 +2360,10 @@ class zmod_color:
             if slot_config.get('filament_tube_length')>150.0:
                 script = [
                     "G92 E0",
+                    "DISABLE_SENSOR",
                     "G1 E150 F240",
                     "M400",
+                    "ENABLE_SENSOR"
                 ]
                 self.gcode.run_script_from_command("\n".join(script))
                 tube = slot_config.get('filament_tube_length') - 150.0
@@ -2326,8 +2371,10 @@ class zmod_color:
                 tube = slot_config.get('filament_tube_length')
 
             script = [
+                "DISABLE_SENSOR",
                 f"G1 E{tube:.3f} F240",
                 "M400",
+                "ENABLE_SENSOR",
                 f"M104 S{slot_config.get('temp_wait'):.3f} T{zslot-1}",
                 "_T_OUT NO_Z=0"
             ]
@@ -2391,13 +2438,17 @@ class zmod_color:
             "M400",
             f"_WAIT_TEMP T={t} EXTRUDER_TEMP={slot_config.get('temp'):.3f} BED_TEMP=0 FROM=_T_PREPARE",
             "SET_FAN_SPEED FAN=chamber_fan SPEED=0.000",        # Сливаем пластик
+            "DISABLE_SENSOR",
             "G92 E0",
             f"G1 E{slot_config.get('filament_drop_length'):.3f} F240",
             "M400",
+            "ENABLE_SENSOR",
             f"M106 P1 S{slot_config.get('fan_speed'):.3f}",
+            "DISABLE_SENSOR",
             "G92 E0",
             "G1 E-5 F240",
             "M400",
+            "ENABLE_SENSOR",
             "G1 X250 F6000",                                    # Идем к резинке
             f"G1 Y{slot_config.get('wiper_y'):.3f} F24000",
             f"G1 X{slot_config.get('wiper_x'):.3f} F6000",
@@ -2430,7 +2481,10 @@ class zmod_color:
     def cmd_T_SET_GCODE_OFFSET(self, gcmd):
         active_t = self._get_active_extruder(None)
         if active_t < 0:
-            gcmd.respond_info("Регулировка Z-Offset пропущена: экструдер не в голове или неопределен.")
+            if self.lang == 'ru':
+                gcmd.respond_info("Регулировка Z-Offset пропущена: экструдер не в голове или неопределен.")
+            else:
+                gcmd.respond_info("Z-Offset adjustment skipped: extruder not on head or undefined.")
             return
 
         z_param = gcmd.get_float('Z', None)
@@ -2445,7 +2499,11 @@ class zmod_color:
                 clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
                 z_cfg = json.loads(clean)
         except Exception as e:
-            raise gcmd.error(f"Ошибка чтения zoffset.json: {str(e)}")
+            if self.lang == 'ru':
+                msg = f"Ошибка чтения zoffset.json: {str(e)}"
+            else:
+                msg = f"Error reading zoffset.json: {str(e)}"
+            raise gcmd.error(msg)
 
         try:
             with open(FFCONFIG + 'extruder.json', 'r') as file:
@@ -2453,7 +2511,11 @@ class zmod_color:
                 clean_ext = re.sub(r'/\*.*?\*/', '', raw_ext, flags=re.DOTALL)
                 ext_cfg = json.loads(clean_ext)
         except Exception as e:
-            raise gcmd.error(f"Ошибка чтения extruder.json: {str(e)}")
+            if self.lang == 'ru':
+                msg = f"Ошибка чтения extruder.json: {str(e)}"
+            else:
+                msg = f"Error reading extruder.json: {str(e)}"
+            raise gcmd.error(msg)
 
         move_status = self.gcode_move.get_status(self.printer.get_reactor().monotonic())
         current_klipper_offset_z = self.gcode_move.homing_position[2]
@@ -2467,7 +2529,11 @@ class zmod_color:
             tn_z = float(ext_cfg[f"t{active_t}_offset_z"])
             z_station_pos = float(ext_cfg.get("z_station_pos", -1.78))
         except KeyError as e:
-            raise gcmd.error(f"В extruder.json отсутствует калибровочный параметр: {str(e)}")
+            if self.lang == 'ru':
+                msg = f"В extruder.json отсутствует калибровочный параметр: {str(e)}"
+            else:
+                msg = f"Missing calibration parameter in extruder.json: {str(e)}"
+            raise gcmd.error(msg)
 
         base_calculated_z = tn_z - z_station_pos + self.plate_z + self.temp_z_offset()
         new_file_z_offset = target_absolute_z - base_calculated_z
@@ -2479,7 +2545,11 @@ class zmod_color:
             with open(FFCONFIG + 'zoffset.json', 'w', encoding='utf-8') as file:
                 file.write(new_json_str + "\n/* Printer zoffset Config */")
         except Exception as e:
-            raise gcmd.error(f"Ошибка записи в zoffset.json: {str(e)}")
+            if self.lang == 'ru':
+                msg = f"Ошибка записи в zoffset.json: {str(e)}"
+            else:
+                msg = f"Error writing zoffset.json: {str(e)}"
+            raise gcmd.error(msg)
 
     def cmd_T_CHANGE_FILAMENT(self, gcmd):
         t = gcmd.get_int('T', None)
@@ -2509,14 +2579,21 @@ class zmod_color:
         if t_param is None or t_param < 0 or t_param > 3:
             raise gcmd.error("Error: T parameter is required and must be between 0 and 3")
 
-        gcmd.respond_raw(f"// Ищу аналог T{t_param}")
+        if self.lang == 'ru':
+            gcmd.respond_raw(f"// Ищу аналог T{t_param}")
+        else:
+            gcmd.respond_raw(f"// Searching analog for T{t_param}")
         cmd_time = self.printer.get_reactor().monotonic()
 
         try:
             with open(FILE_CONFIG, 'r') as file:
                 tools = json.load(file)
         except Exception as e:
-            raise gcmd.error(f"Ошибка чтения FILE_CONFIG: {str(e)}")
+            if self.lang == 'ru':
+                msg = f"Ошибка чтения FILE_CONFIG: {str(e)}"
+            else:
+                msg = f"Error reading FILE_CONFIG: {str(e)}"
+            raise gcmd.error(msg)
 
         # Находим, какому логическому TG соответствует наш физический T
         # В массиве хранятся значения (физический_T + 1)
@@ -2527,7 +2604,12 @@ class zmod_color:
                 break
 
         if current_tg is None:
-            raise gcmd.error(f"Физический T{t_param} не найден в текущем массиве инструментов конфигурации")
+            if self.lang == 'ru':
+                msg = f"Физический T{t_param} не найден в текущем массиве инструментов конфигурации"
+            else:
+                msg = f"Physical T{t_param} not found in the current tool configuration array"
+
+            raise gcmd.error(msg)
 
         # Читаем filament.json для определения типа и цвета пластика
         file_path = FFCONFIG + 'filament.json'
@@ -2537,7 +2619,11 @@ class zmod_color:
             clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
             filament_cfg = json.loads(clean)
         except Exception as e:
-            raise gcmd.error(f"Ошибка чтения filament.json: {str(e)}")
+            if self.lang == 'ru':
+                msg = f"Ошибка чтения filament.json: {str(e)}"
+            else:
+                msg = f"Error reading filament.json: {str(e)}"
+            raise gcmd.error(msg)
 
         target_type = filament_cfg.get(f"ex{t_param}_filament_type")
         target_color = filament_cfg.get(f"ex{t_param}_filament_color")
@@ -2563,7 +2649,10 @@ class zmod_color:
                     break
 
         if t_new is not None:
-            gcmd.respond_raw(f"// найден аналог T{t_param} -> T{t_new}")
+            if self.lang == 'ru':
+                gcmd.respond_raw(f"// найден аналог T{t_param} -> T{t_new}")
+            else:
+                gcmd.respond_raw(f"// found analog T{t_param} -> T{t_new}")
 
             # Заменяем в массиве инструментов старый экструдер на новый
             # Меняем значение во всех строках/элементах, где оно ссылалось на старую голову
@@ -2575,7 +2664,11 @@ class zmod_color:
                 with open(FILE_CONFIG, 'w') as file:
                     json.dump(tools, file, indent=2)
             except Exception as e:
-                raise gcmd.error(f"Ошибка перезаписи FILE_CONFIG: {str(e)}")
+                if self.lang == 'ru':
+                    msg = f"Ошибка перезаписи FILE_CONFIG: {str(e)}"
+                else:
+                    msg = f"Error rewriting FILE_CONFIG: {str(e)}"
+                raise gcmd.error(msg)
 
             script = [
                 "SDCARD_NO_FILAMENT_CHECK_EX CHECK=0",
@@ -2595,7 +2688,10 @@ class zmod_color:
             ]
             self.gcode.run_script_from_command("\n".join(script))
         else:
-            gcmd.respond_raw(f"// аналог для T{t_param} не найден")
+            if self.lang == 'ru':
+                gcmd.respond_raw(f"// аналог для T{t_param} не найден")
+            else:
+                gcmd.respond_raw(f"// analog for T{t_param} not found")
             self.gcode.run_script_from_command("PAUSE")
 
 def load_config(config):
