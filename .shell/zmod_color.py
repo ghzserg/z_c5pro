@@ -679,6 +679,7 @@ class zmod_color:
         self.gcode.register_command('_T_SET_GCODE_OFFSET', self.cmd_T_SET_GCODE_OFFSET) # Сохранить Z-Offset
         self.gcode.register_command('_T_CHANGE_FILAMENT', self.cmd_T_CHANGE_FILAMENT)     # Сменить филамент
         self.gcode.register_command('_T_FIND_ANALOG', self.cmd_T_FIND_ANALOG)   # Поиск аналогмичного прутка
+        self.gcode.register_command('_T_TEST_PA', self.cmd_TEST_PA)       # Подбор PA
 
         self.printer.register_event_handler("klippy:ready", self._handle_ready)
 
@@ -732,6 +733,10 @@ class zmod_color:
         # Инициализация датчиков наличия и движения филамента для ex0-ex3
         self.fd_sensors = [self.printer.lookup_object(f"filament_switch_sensor fd_ex{i}", None) for i in range(4)]
         self.fm_sensors = [self.printer.lookup_object(f"filament_motion_sensor fm_ex{i}", None) for i in range(4)]
+
+        self.pa_obj = self.printer.lookup_object('pa_adjust', None)
+        if pa_obj is None:
+            raise gcmd.error("pa_adjust module not found! Cannot query MCU directly.")
 
         self.macro_obj = self.printer.lookup_object('gcode_macro _TEST_POINT', None)
 
@@ -2694,6 +2699,107 @@ class zmod_color:
             else:
                 gcmd.respond_raw(f"// analog for T{t_param} not found")
             self.gcode.run_script_from_command("PAUSE")
+
+    def cmd_TEST_PA(self, gcmd):
+        t_index = gcmd.get_int('T', None)
+        if t_index is None or t_index < 0 or t_index > 3:
+            raise gcmd.error("Error: T parameter is required and must be between 0 and 3")
+
+        gcmd.respond_info(f"Starting PA calibration for T{t_index}...")
+
+        script = [
+            "G1 X250 F12000",
+            "G1 Y254.000 F24000",
+            "G1 X275.000 F2400",
+            "M400",
+            NEED GZ G1 Z8.171 F3000
+            NEED_WAIT_TEMP
+            "SET_FAN_SPEED FAN=chamber_fan SPEED=0.000",
+            "G92 E0",
+            "M83",
+            "SET_VELOCITY_LIMIT ACCEL=5000",
+            "SET_VELOCITY_LIMIT SQUARE_CORNER_VELOCITY=9",
+            "SET_PIN PIN=enable_pin_tmc_x VALUE=1.00",
+            "SET_PIN PIN=enable_pin_tmc_y VALUE=1.00"
+        ]
+        self.gcode.run_script_from_command("\n".join(script))
+
+        # Матрица тестовых значений и Y-координат
+        test_values = [0.0100, 0.0200, 0.0150, 0.0350, 0.0250, 0.0300, 0.0400]
+        y_starts = [50.0, 55.0, 60.0, 65.0, 70.0, 75.0, 80.0]
+
+        pass_minimums = []
+
+        for pass_num in range(3):
+            gcmd.respond_info(f"Pass {pass_num + 1}/3...")
+            min_success = None
+
+            for i, val in enumerate(test_values):
+                y = y_starts[i]
+
+                self.pa_obj._pa_action_cmd.send([11, 666])
+                self.gcode.run_script_from_command(f"SET_PRESSURE_ADVANCE ADVANCE={val:.4f}")
+
+                # Печать тестового паттерна
+                script = [
+                    f"G1 X40 Y{y:.3f} F30000",
+                    "G1 F1080",
+                    "G1 X60 E1.13573",
+                    "G1 F10980",
+                    "G1 X100 E2.27146",
+                    "G1 F1080",
+                    "G1 X120 E1.13573",
+                    "G1 F1080",
+                    "G1 X140 E1.13573",
+                    "G1 F10980",
+                    "G1 X180 E2.27146",
+                    "G1 F1080",
+                    "G1 X200 E1.13573",
+                ]
+
+                self.gcode.run_script_from_command("\n".join(script))
+
+                # Отправка команды на МК: закончить анализ (ACTION=0, PC=666)
+                self.pa_obj._pa_action_cmd.send([0, 666])
+                self.gcode.run_script_from_command("M400")
+
+                # Опрос МК для получения оценки (0 или 9)
+                result = pa_obj._pa_value_get_cmd.send()
+                res_val = int(result["value"])
+
+                # Ищем минимальное успешное значение в этом проходе
+                if res_val == 9:
+                    if min_success is None or val < min_success:
+                        min_success = val
+
+            if min_success is not None:
+                pass_minimums.append(min_success)
+                gcmd.respond_info(f"Pass {pass_num + 1} minimum success: {min_success:.4f}")
+            else:
+                gcmd.respond_info(f"Pass {pass_num + 1} failed to find any good PA value.")
+
+        if len(pass_minimums) == 0:
+            raise gcmd.error("PA calibration failed: No successful values found in any pass.")
+
+        script = [
+            "SET_PIN PIN=enable_pin_tmc_x VALUE=0.00",
+            "SET_PIN PIN=enable_pin_tmc_y VALUE=0.00",
+            "SET_KINEMATIC_POSITION X=275.0000 Y=254.0000 Z=8.1712"
+NEED Z
+        ]
+        self.gcode.run_script_from_command("\n".join(script))
+
+
+        # Среднее арифметическое минимальных успешных значений из каждого прохода
+        final_pa = sum(pass_minimums) / len(pass_minimums)
+        gcmd.respond_info(f"Calculated optimal PA: {final_pa:.4f}")
+
+        # Формируем команду SET_PA_ADVANCE для нужного экструдера
+        t_params = ["99.0"] * 4
+        t_params[t_index] = f"{final_pa:.4f}"
+        cmd_str = f"SET_PA_ADVANCE T0={t_params[0]} T1={t_params[1]} T2={t_params[2]} T3={t_params[3]} ENABLE=1"
+        self.gcode.run_script_from_command(cmd_str)
+        gcmd.respond_info(f"Applied PA {final_pa:.4f} to T{t_index} via SET_PA_ADVANCE")
 
 def load_config(config):
     return zmod_color(config)
