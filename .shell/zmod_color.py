@@ -1985,7 +1985,7 @@ class zmod_color:
                     })
 
             self.gcode.run_script_from_command(f"SAVE_VARIABLE VARIABLE=print_leveling VALUE={leveling}")
-            self.gcode.run_script_from_command(f"SAVE_VARIABLE VARIABLE=autopa VALUE={autopa}")
+            self.gcode.run_script_from_command(f"SAVE_VARIABLE VARIABLE=print_autopa VALUE={autopa}")
             if self.display:
                 if any(file_color[0] > 3 for file_color in self.file_colors):
                     raise gcmd.error(self._t('error_native_screen_tool_count', len(self.file_colors))) # We should never actually get here with >4 colors. But this check is here just in case.
