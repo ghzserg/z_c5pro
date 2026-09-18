@@ -2466,7 +2466,8 @@ class zmod_color:
         script = [
             "M106 P1 S0",
             "G1 Z10 F1200",
-            "M400"
+            "M400",
+            "SET_FAN_SPEED FAN=chamber_fan SPEED=0.500"         # Включаем выдув
         ]
         self.gcode.run_script_from_command("\n".join(script))
 
