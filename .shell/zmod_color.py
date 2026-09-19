@@ -1107,7 +1107,10 @@ class zmod_color:
         if len(not_home_indices) == 0 and len(on_head_indices) == 0:
             self.active_tool_id = -1
             if gcmd:
-                gcmd.respond_raw(f"// Head: -1")
+                if self.lang == 'ru':
+                    gcmd.respond_raw(f"// Каретка: -1")
+                else:
+                    gcmd.respond_raw(f"// Head: -1")
             return -1
 
         # Если один не дома, и именно он на голове — возвращаем его номер (0-3)
@@ -1115,7 +1118,10 @@ class zmod_color:
             if not_home_indices[0] == on_head_indices[0]:
                 self.active_tool_id = not_home_indices[0]
                 if gcmd:
-                    gcmd.respond_raw(f"// Head: T{not_home_indices[0]}")
+                    if self.lang == 'ru':
+                        gcmd.respond_raw(f"// Каретка: T{not_home_indices[0]}")
+                    else:
+                        gcmd.respond_raw(f"// Head: T{not_home_indices[0]}")
                 return not_home_indices[0]
             else:
                 self.active_tool_id = -2
@@ -1198,7 +1204,7 @@ class zmod_color:
                     self.gcode.run_script_from_command("G28.1 Y\nM400")
 
         if active_t != -1:
-            self.cmd_T_OUT(gcmd)
+            self.gcode.run_script_from_command("_T_OUT NO_Z=0")
 
         if 'z' in params_str:
             self.gcode.run_script_from_command("G28.1 Z\nM400")
@@ -1266,7 +1272,10 @@ class zmod_color:
         active_t = self._get_active_extruder(gcmd)
 
         if active_t == t_index and 'z' in homed_axes:
-            gcmd.respond_info(f"T{active_t} in Head. Skip...")
+            if self.lang == 'ru':
+                gcmd.respond_info(f"T{active_t} уже в голове. Пропуск...")
+            else:
+                gcmd.respond_info(f"T{active_t} in Head. Skip...")
             return
 
         if active_t != -1:
@@ -2049,7 +2058,10 @@ class zmod_color:
 
                 # Если включен параметр autopa, запускаем подбор PA для всех используемых экструдеров
                 if autopa == 1:
-                    gcmd.respond_info("AUTOPA: Запуск автоматического подбора PA перед печатью...")
+                    if self.lang == 'ru':
+                        gcmd.respond_info("Auto PA: Запуск автоматического подбора PA перед печатью...")
+                    else:
+                        gcmd.respond_info("Auto PA: Starting automatic PA calibration before printing...")
 
                     script = []
                     for idx, tool_val in enumerate(tools):
@@ -2704,18 +2716,27 @@ class zmod_color:
         if self.physical_pa[t_fiz] != 99.0:
             gcmd.respond_info(f"PA T{t_fiz}: {self.physical_pa[t_fiz]:.4f}")
             return
-        else:
-            gcmd.respond_info(f"PA T{t_fiz}: ...")
+
+        gcmd.respond_info(f"PA T{t_fiz}: ...")
 
         slot_config = self.get_filament_config_t(t_fiz)
 
-        gcmd.respond_info(
-            f"T{t_fiz} Config ({slot_config.get('filament_type', 'UNKNOWN')}):\n"
-            f"  temp (auto purge): {slot_config.get('temp')}°C\n"
-            f"  temp_wait:         {slot_config.get('temp_wait')}°C\n"
-            f"  drop_length:       {slot_config.get('filament_drop_length')} mm\n"
-            f"  trash_position:    X={slot_config.get('trash_x')} Y={slot_config.get('trash_y')} Z={slot_config.get('trash_z')}"
-        )
+        if self.lang == 'ru':
+            gcmd.respond_info(
+                f"Конфиг T{t_fiz} ({slot_config.get('filament_type', 'UNKNOWN')}):\n"
+                f"  Темп. продувки:    {slot_config.get('temp')}°C\n"
+                f"  Темп. ожидания:    {slot_config.get('temp_wait')}°C\n"
+                f"  Длина сброса:      {slot_config.get('filament_drop_length')} мм\n"
+                f"  Позиция корзины:   X={slot_config.get('trash_x')} Y={slot_config.get('trash_y')} Z={slot_config.get('trash_z')}"
+            )
+        else:
+            gcmd.respond_info(
+                f"T{t_fiz} Config ({slot_config.get('filament_type', 'UNKNOWN')}):\n"
+                f"  temp (auto purge): {slot_config.get('temp')}°C\n"
+                f"  temp_wait:         {slot_config.get('temp_wait')}°C\n"
+                f"  drop_length:       {slot_config.get('filament_drop_length')} mm\n"
+                f"  trash_position:    X={slot_config.get('trash_x')} Y={slot_config.get('trash_y')} Z={slot_config.get('trash_z')}"
+            )
 
         script = [
             f"_T_IN T={t_fiz}",
@@ -2742,7 +2763,10 @@ class zmod_color:
         pass_minimums = []
 
         for pass_num in range(3):
-            gcmd.respond_info(f"Pass {pass_num + 1}/3...")
+            if self.lang == 'ru':
+                gcmd.respond_info(f"Проход {pass_num + 1}/3...")
+            else:
+                gcmd.respond_info(f"Pass {pass_num + 1}/3...")
             min_success = None
 
             for i, val in enumerate(test_values):
