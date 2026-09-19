@@ -2039,7 +2039,7 @@ class zmod_color:
                     "SDCARD_SET_GCODE_EX_USED_BASE INDEX=1 EXTRUDER=T1",
                     "SDCARD_SET_GCODE_EX_USED_BASE INDEX=2 EXTRUDER=T2",
                     "SDCARD_SET_GCODE_EX_USED_BASE INDEX=3 EXTRUDER=T3",
-                    "M140 S{bed_temp:.1f}"
+                    f"M140 S{bed_temp:.1f}"
                 ]
 
                 for idx in range(4):
