@@ -2057,7 +2057,7 @@ class zmod_color:
                     script.append("M400")
                     self.gcode.run_script_from_command("\n".join(script))
 
-                    self.set_autopa()
+                    self.set_autopa(gcmd)
 
                 script = [
 
@@ -2673,7 +2673,7 @@ class zmod_color:
                 tool_val = tools[idx] if idx < len(tools) else (idx + 1)
                 script.append(f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX={idx} EXTRUDER=T{tool_val-1}")
 
-            slf.set_autopa()
+            self.set_autopa(gcmd)
 
             script += [
                 "SDCARD_SET_NEED_CHECK_EX CHECK=1",
@@ -2688,7 +2688,7 @@ class zmod_color:
                 gcmd.respond_raw(f"// analog for T{t_param} not found")
             self.gcode.run_script_from_command("PAUSE")
 
-    def set_autopa(self):
+    def set_autopa(self, gcmd):
         pa0, pa1, pa2, pa3 = self.physical_pa
         pa_enable = 1 if any(pa != 99.0 for pa in [pa0, pa1, pa2, pa3]) else 0
 
