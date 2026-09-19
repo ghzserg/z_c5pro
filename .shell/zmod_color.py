@@ -17,8 +17,9 @@ DEFAULT_FILAMENT_SETTINGS = {
     "temp_wait": 120,                   # Температура простоя
     "filament_tube_length": 295,        # Длина загрузки
     "filament_drop_length": 50,         # Длина продувки перед печатью
-    "trash_x": 275.0,                   # Координата корзины X
-    "trash_y": 254.0,                   # Координата корзины Y
+    "trash_x": 275.0,                   # Координата корзины
+    "trash_y": 254.0,
+    "trash_z": 10.0,
     "wiper_x": 266.50,                  # Координаты места для очистки сопла
     "wiper_y": 13.80,
     "wiper_z": 1,
@@ -622,6 +623,8 @@ class zmod_color:
         self.saved_temperature = 0.0
 
         self.active_tool_id = -2
+        self.physical_pa = [99.0, 99.0, 99.0, 99.0]     # PA физических экструдеров
+        self.logical_pa  = [99.0, 99.0, 99.0, 99.0]     # PA логических экструдеров из G-кода
 
         self.display = config.getboolean('display', True)
         self.lang = 'en'
@@ -683,13 +686,13 @@ class zmod_color:
 
         self.printer.register_event_handler("klippy:ready", self._handle_ready)
 
-        with open(FFCONFIG + 'general.json', 'r') as file:
+        with open(FFCONFIG + 'general.json', 'r', encoding='utf-8') as file:
             raw = file.read()
             clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
             data = json.loads(clean)
             self.serialNumber = data['serialNumber']
 
-        with open(FFCONFIG + 'network.json', 'r') as file:
+        with open(FFCONFIG + 'network.json', 'r', encoding='utf-8') as file:
             raw = file.read()
             clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
             data = json.loads(clean)
@@ -723,6 +726,8 @@ class zmod_color:
         self.toolhead = self.printer.lookup_object('toolhead')
         self.save_variables = self.printer.lookup_object('save_variables', None)
         self.save_variables = {} if self.save_variables == None else self.save_variables.allVariables
+        self.pa_obj = self.printer.lookup_object('pa_adjust', None)
+        self.macro_obj = self.printer.lookup_object('gcode_macro _TEST_POINT', None)
 
         self.home_buttons = ['extruder_pos1', 'extruder_pos2', 'extruder_pos3', 'extruder_pos4']
         self.grab_buttons = ['extruder_grab1', 'extruder_grab2', 'extruder_grab3', 'extruder_grab4']
@@ -733,12 +738,6 @@ class zmod_color:
         # Инициализация датчиков наличия и движения филамента для ex0-ex3
         self.fd_sensors = [self.printer.lookup_object(f"filament_switch_sensor fd_ex{i}", None) for i in range(4)]
         self.fm_sensors = [self.printer.lookup_object(f"filament_motion_sensor fm_ex{i}", None) for i in range(4)]
-
-        self.pa_obj = self.printer.lookup_object('pa_adjust', None)
-        if pa_obj is None:
-            raise gcmd.error("pa_adjust module not found! Cannot query MCU directly.")
-
-        self.macro_obj = self.printer.lookup_object('gcode_macro _TEST_POINT', None)
 
     def temp_z_offset(self):
         if self.macro_obj is not None:
@@ -752,7 +751,7 @@ class zmod_color:
     def upgrade_filament_json(self):
         existing_file_data = {}
         try:
-            with open(TYPECONFIG, 'r') as f:
+            with open(TYPECONFIG, 'r', encoding='utf-8') as f:
                 existing_file_data = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             pass
@@ -796,7 +795,7 @@ class zmod_color:
             existing_file_data = {}
         else:
             try:
-                with open(TYPECONFIG, 'r') as f:
+                with open(TYPECONFIG, 'r', encoding='utf-8') as f:
                     existing_file_data = json.load(f)
             except (FileNotFoundError, json.JSONDecodeError):
                 existing_file_data = {}
@@ -823,7 +822,7 @@ class zmod_color:
                             new_filament[key] = data[filament_name][key]
             new_data[filament_name] = new_filament
 
-        with open(TYPECONFIG, 'w') as f:
+        with open(TYPECONFIG, 'w', encoding='utf-8') as f:
             json.dump(new_data, f, indent=4)
             return new_data
 
@@ -841,6 +840,24 @@ class zmod_color:
 
         config['filament_type'] = filament_type
         return config
+
+    def get_filament_config_t(self, t):
+        # Запрашиваем актуальное состояние ячеек принтера
+        if self.display:
+            status_code, response_data = self.zsend_post_request("/detail")
+        else:
+            status_code, response_data = self.get_printer_data_detail()
+
+        # Ищем имя пластика в выбранном слоте
+        material_name = 'PLA'
+        if status_code:
+            slots_info = self.parse_printer_response(response_data)
+            for slot in slots_info:
+                if int(slot['ID']) == t + 1:
+                    material_name = slot['Material']
+                    break
+
+        return self.get_filament_config(material_name)
 
     def set_printer_data_detail(self, slot_id, material_name, hex_color):
         try:
@@ -906,7 +923,7 @@ class zmod_color:
         return "Not found"
 
     def get_current_channel(self):
-        return self._get_active_extruder(None)+1
+        return self._get_active_extruder(None) + 1
 
     def zsend_post_request(self, api, payload=None, send_data=None):
         base_ip = self.get_printer_ip()
@@ -961,7 +978,7 @@ class zmod_color:
         cmd_time = self.printer.get_reactor().monotonic()
 
         try:
-            with open(FFCONFIG + 'filament.json', 'r') as file:
+            with open(FFCONFIG + 'filament.json', 'r', encoding='utf-8') as file:
                 raw = file.read()
                 clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
                 filament_cfg = json.loads(clean)
@@ -1276,7 +1293,7 @@ class zmod_color:
             self.gcode.run_script_from_command("G28.1 Z\nM400")
 
         try:
-            with open(FFCONFIG + 'extruder.json', 'r') as file:
+            with open(FFCONFIG + 'extruder.json', 'r', encoding='utf-8') as file:
                 raw = file.read()
                 clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
                 ext_cfg = json.loads(clean)
@@ -1284,7 +1301,7 @@ class zmod_color:
             raise gcmd.error(f"Error reading extruder.json: {str(e)}")
 
         try:
-            with open(FFCONFIG + 'zoffset.json', 'r') as file:
+            with open(FFCONFIG + 'zoffset.json', 'r', encoding='utf-8') as file:
                 raw = file.read()
                 clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
                 z_cfg = json.loads(clean)
@@ -1415,7 +1432,7 @@ class zmod_color:
                         self.gcode.run_script_from_command(f"_WAIT_TEMP T={t_index} EXTRUDER_TEMP=140 BED_TEMP=0 FROM=_T_OUT")
 
         try:
-            with open(FFCONFIG + 'extruder.json', 'r') as file:
+            with open(FFCONFIG + 'extruder.json', 'r', encoding='utf-8') as file:
                 raw = file.read()
                 clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
                 ext_cfg = json.loads(clean)
@@ -1590,7 +1607,7 @@ class zmod_color:
 
         color_data_line = ''
 
-        with open(f"/usr/data/gcodes/{fname}", 'r') as f:
+        with open(f"/usr/data/gcodes/{fname}", 'r', encoding='utf-8') as f:
             for line_raw in f:
                 line = line_raw.strip().casefold()
                 if len(line) == 0:
@@ -1707,19 +1724,6 @@ class zmod_color:
                             continue
                         sl, sa, sb = self.rgb_to_lab(slot['red'], slot['green'], slot['blue'])
                         this_color_difference = self.delta_e76(fl, fa, fb, sl, sa, sb)
-
-#                    file_color_red = int(file_color[1][1:3], 16)
-#                    file_color_green = int(file_color[1][3:5], 16)
-#                    file_color_blue = int(file_color[1][5:7], 16)
-#                    for slot in candidates:
-#                        if slot['red'] < 0 or slot['green'] < 0 or slot['blue'] < 0:
-#                            continue
-#
-#                        this_color_difference = (
-#                            (file_color_red - slot['red']) ** 2 +
-#                            (file_color_green - slot['green']) ** 2 +
-#                            (file_color_blue - slot['blue']) ** 2
-#                        )
 
                         if this_color_difference < closest_slot_difference:
                             closest_slot = slot
@@ -2011,11 +2015,14 @@ class zmod_color:
                 else:
                     gcmd.respond_raw(self._t('printing_error', response_data2))
             else:
-                with open(FILE_CONFIG, 'w') as file:
+                with open(FILE_CONFIG, 'w', encoding='utf-8') as file:
                     json.dump(tools, file, indent=2)
 
                 file_channel, bed_temp = self.find_t_code(fname)
                 t_start = tools[file_channel] - 1
+
+                self.physical_pa = [99.0, 99.0, 99.0, 99.0]
+                self.logical_pa = [99.0, 99.0, 99.0, 99.0]
 
                 script = [
                     "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=0",
@@ -2023,7 +2030,7 @@ class zmod_color:
                     "SET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0",
                     "SET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=0",
                     "_DISABLE_SENSOR",
-                    f"SET_PA_ADVANCE T0=99.0 T1=99.0 T2=99.0 T3=99.0 ENABLE={1 if autopa else 0}",
+                    "SET_PA_ADVANCE T0=99.0 T1=99.0 T2=99.0 T3=99.0 ENABLE=0",
                     "SET_FAN_M106P2 ADJUSTED=0 FACTOR=0",
                     "SET_FAN_M106 ADJUSTED=0 FACTOR=0",
                     "SDCARD_NO_FILAMENT_CHECK_EX CHECK=0",
@@ -2038,13 +2045,30 @@ class zmod_color:
                     tool_val = tools[idx] if idx < len(tools) else (idx + 1)
                     script.append(f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX={idx} EXTRUDER=T{tool_val-1}")
 
-                script += [
+                self.gcode.run_script_from_command("\n".join(script))
+
+                # Если включен параметр autopa, запускаем подбор PA для всех используемых экструдеров
+                if autopa == 1:
+                    gcmd.respond_info("AUTOPA: Запуск автоматического подбора PA перед печатью...")
+
+                    script = []
+                    for idx, tool_val in enumerate(tools):
+                        script.append(f"_T_TEST_PA T_FIZ={tool_val - 1} T_LOG={idx}")
+                    script.append("M400")
+                    self.gcode.run_script_from_command("\n".join(script))
+
+                    # Извлекаем логические значения PA
+                    pa0, pa1, pa2, pa3 = self.logical_pa
+                    pa_enable = 1 if any(pa != 99.0 for pa in [pa0, pa1, pa2, pa3]) else 0
+                    self.gcode.run_script_from_command(f"SET_PA_ADVANCE T0={pa0:.4f} T1={pa1:.4f} T2={pa2:.4f} T3={pa3:.4f} ENABLE={pa_enable}")
+                    gcmd.respond_raw(f"SET_PA_ADVANCE T0={pa0:.4f} T1={pa1:.4f} T2={pa2:.4f} T3={pa3:.4f} ENABLE={pa_enable} // ZCOLOR")
+
+                script = [
                     "SDCARD_SET_NEED_CHECK_EX CHECK=1",
                     "MUTE_MODE_DISABLE",
                     f"_T_PREPARE T={t_start} BED_TEMP={bed_temp:.1f} FULL=0",
                     f"SDCARD_PRINT_FILE FILENAME=\"{fname}\""
                 ]
-
                 self.gcode.run_script_from_command("\n".join(script))
         else:
             gcmd.respond_raw(self._t('no_response', json.dumps(response_data)))
@@ -2312,33 +2336,16 @@ class zmod_color:
         if zslot < 0 or zslot > self.color_limit:
             raise gcmd.error(self._t('error_slot'))
 
-        # 1. Запрашиваем актуальное состояние ячеек принтера
-        if self.display:
-            status_code, response_data = self.zsend_post_request("/detail")
-        else:
-            status_code, response_data = self.get_printer_data_detail()
+        slot_config = self.get_filament_config_t(zslot - 1)
 
-        # 2. Ищем имя пластика в выбранном слоте
-        material_name = 'PLA' # Дефолтное значение на случай сбоя связи
-        if status_code:
-            slots_info = self.parse_printer_response(response_data)
-            for slot in slots_info:
-                if int(slot['ID']) == zslot:
-                    material_name = slot['Material']
-                    break
-
-        # 3. Извлекаем конфигурацию температур и длин для найденного пластика
-        slot_config = self.get_filament_config(material_name)
-
-        # 4. Выводим все параметры в консоль принтера
         gcmd.respond_info(
-            f"Slot {zslot} Config ({material_name}):\n"
+            f"Slot {zslot} Config ({slot_config.get('filament_type', 'UNKNOWN')}):\n"
             f"  temp (auto purge): {slot_config.get('temp')}°C\n"
             f"  temp_manual:       {slot_config.get('temp_manual')}°C\n"
             f"  temp_wait:         {slot_config.get('temp_wait')}°C\n"
             f"  tube_length:       {slot_config.get('filament_tube_length')} mm\n"
             f"  drop_length:       {slot_config.get('filament_drop_length')} mm\n"
-            f"  trash_position:    X={slot_config.get('trash_x')} Y={slot_config.get('trash_y')}"
+            f"  trash_position:    X={slot_config.get('trash_x')} Y={slot_config.get('trash_y')} Z={slot_config.get('trash_z')}"
         )
 
         napr = gcmd.get_int('NAPR', 0)
@@ -2396,33 +2403,19 @@ class zmod_color:
         full = gcmd.get_int('FULL', 1)
         bed_temp = gcmd.get_float('BED_TEMP', 65.0)
         t = gcmd.get_int('T', 0)
-        zslot = t + 1
-        if zslot < 1 or zslot > self.color_limit:
+        if t < 0 or t >= self.color_limit:
             raise gcmd.error(self._t('error_slot'))
 
-        if self.display:
-            status_code, response_data = self.zsend_post_request("/detail")
-        else:
-            status_code, response_data = self.get_printer_data_detail()
-
-        material_name = 'PLA'
-        if status_code:
-            slots_info = self.parse_printer_response(response_data)
-            for slot in slots_info:
-                if int(slot['ID']) == zslot:
-                    material_name = slot['Material']
-                    break
-
-        slot_config = self.get_filament_config(material_name)
+        slot_config = self.get_filament_config_t(t)
 
         gcmd.respond_info(
-            f"T{t} ({material_name}):\n"
+            f"T{t} ({slot_config.get('filament_type', 'UNKNOWN')}):\n"
             f"  temp (auto purge): {slot_config.get('temp')}°C\n"
             f"  temp_manual:       {slot_config.get('temp_manual')}°C\n"
             f"  temp_wait:         {slot_config.get('temp_wait')}°C\n"
             f"  tube_length:       {slot_config.get('filament_tube_length')} mm\n"
             f"  drop_length:       {slot_config.get('filament_drop_length')} mm\n"
-            f"  trash_position:    X={slot_config.get('trash_x')} Y={slot_config.get('trash_y')}"
+            f"  trash_position:    X={slot_config.get('trash_x')} Y={slot_config.get('trash_y')} Z={slot_config.get('trash_z')}"
         )
 
         move_status = self.gcode_move.get_status(self.printer.get_reactor().monotonic())
@@ -2512,7 +2505,7 @@ class zmod_color:
             raise gcmd.error(msg)
 
         try:
-            with open(FFCONFIG + 'extruder.json', 'r') as file:
+            with open(FFCONFIG + 'extruder.json', 'r', encoding='utf-8') as file:
                 raw_ext = file.read()
                 clean_ext = re.sub(r'/\*.*?\*/', '', raw_ext, flags=re.DOTALL)
                 ext_cfg = json.loads(clean_ext)
@@ -2592,7 +2585,7 @@ class zmod_color:
         cmd_time = self.printer.get_reactor().monotonic()
 
         try:
-            with open(FILE_CONFIG, 'r') as file:
+            with open(FILE_CONFIG, 'r', encoding='utf-8') as file:
                 tools = json.load(file)
         except Exception as e:
             if self.lang == 'ru':
@@ -2667,7 +2660,7 @@ class zmod_color:
                     tools[idx] = t_new + 1
 
             try:
-                with open(FILE_CONFIG, 'w') as file:
+                with open(FILE_CONFIG, 'w', encoding='utf-8') as file:
                     json.dump(tools, file, indent=2)
             except Exception as e:
                 if self.lang == 'ru':
@@ -2683,10 +2676,17 @@ class zmod_color:
                 "SDCARD_SET_GCODE_EX_USED_BASE INDEX=1 EXTRUDER=T1",
                 "SDCARD_SET_GCODE_EX_USED_BASE INDEX=2 EXTRUDER=T2",
                 "SDCARD_SET_GCODE_EX_USED_BASE INDEX=3 EXTRUDER=T3",
+                "SET_PA_ADVANCE T0=99.0 T1=99.0 T2=99.0 T3=99.0 ENABLE=0",
             ]
             for idx in range(4):
                 tool_val = tools[idx] if idx < len(tools) else (idx + 1)
                 script.append(f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX={idx} EXTRUDER=T{tool_val-1}")
+
+            # Извлекаем логические значения PA
+            pa0, pa1, pa2, pa3 = self.logical_pa
+            pa_enable = 1 if any(pa != 99.0 for pa in [pa0, pa1, pa2, pa3]) else 0
+            script.append(f"SET_PA_ADVANCE T0={pa0:.4f} T1={pa1:.4f} T2={pa2:.4f} T3={pa3:.4f} ENABLE={pa_enable}")
+            gcmd.respond_raw(f"SET_PA_ADVANCE T0={pa0:.4f} T1={pa1:.4f} T2={pa2:.4f} T3={pa3:.4f} ENABLE={pa_enable} // _T_FIND_ANALOG")
 
             script += [
                 "SDCARD_SET_NEED_CHECK_EX CHECK=1",
@@ -2701,31 +2701,53 @@ class zmod_color:
             self.gcode.run_script_from_command("PAUSE")
 
     def cmd_TEST_PA(self, gcmd):
-        t_index = gcmd.get_int('T', None)
-        if t_index is None or t_index < 0 or t_index > 3:
-            raise gcmd.error("Error: T parameter is required and must be between 0 and 3")
+        t_fiz = gcmd.get_int('T_FIZ', None)
+        if t_fiz is None or t_fiz < 0 or t_fiz > 3:
+            raise gcmd.error("Error: T_FIZ parameter is required and must be between 0 and 3")
+        t_log = gcmd.get_int('T_LOG', None)
+        if t_log is None or t_log < 0 or t_log > 3:
+            raise gcmd.error("Error: T_LOG parameter is required and must be between 0 and 3")
 
-        gcmd.respond_info(f"Starting PA calibration for T{t_index}...")
+        # Проверяем, есть ли уже посчитанный PA для этого физического экструдера
+        if self.physical_pa[t_fiz] != 99.0:
+            self.logical_pa[t_log] = self.physical_pa[t_fiz]
+            gcmd.respond_info(f"PA T{t_fiz} => T{t_log}: {self.physical_pa[t_fiz]:.4f}")
+            return
+        else:
+            gcmd.respond_info(f"PA T{t_fiz} => T{t_log}: ...")
+
+        slot_config = self.get_filament_config_t(t_fiz)
+
+        gcmd.respond_info(
+            f"T{t_fiz} Config ({slot_config.get('filament_type', 'UNKNOWN')}):\n"
+            f"  temp (auto purge): {slot_config.get('temp')}°C\n"
+            f"  temp_manual:       {slot_config.get('temp_manual')}°C\n"
+            f"  temp_wait:         {slot_config.get('temp_wait')}°C\n"
+            f"  tube_length:       {slot_config.get('filament_tube_length')} mm\n"
+            f"  drop_length:       {slot_config.get('filament_drop_length')} mm\n"
+            f"  trash_position:    X={slot_config.get('trash_x')} Y={slot_config.get('trash_y')} Z={slot_config.get('trash_z')}"
+        )
 
         script = [
-            "G1 X250 F12000",
-            "G1 Y254.000 F24000",
-            "G1 X275.000 F2400",
+            f"_T_IN T={t_fiz}",
+            "G1 X250 F12000",                                   # Идем в корзину
+            f"G1 Y{slot_config.get('trash_y'):.2f} F24000",
+            f"G1 X{slot_config.get('trash_x'):.2f} F2400",
             "M400",
-            NEED GZ G1 Z8.171 F3000
-            NEED_WAIT_TEMP
-            "SET_FAN_SPEED FAN=chamber_fan SPEED=0.000",
-            "G92 E0",
+            f"G1 Z{slot_config.get('trash_z'):.2f} F3000",
+            f"_WAIT_TEMP T={t_fiz} EXTRUDER_TEMP={slot_config.get('temp_manual'):.3f} BED_TEMP=0 FROM=_T_TEST_PA", # Греем сопло
+            "SET_FAN_SPEED FAN=chamber_fan SPEED=0.000",        # Отключаем вентилятор на выдув из камеры
+            "G92 E0",                                           # Готовим для теста
             "M83",
             "SET_VELOCITY_LIMIT ACCEL=5000",
             "SET_VELOCITY_LIMIT SQUARE_CORNER_VELOCITY=9",
-            "SET_PIN PIN=enable_pin_tmc_x VALUE=1.00",
+            "SET_PIN PIN=enable_pin_tmc_x VALUE=1.00",          # Отключаем моторы X и Y
             "SET_PIN PIN=enable_pin_tmc_y VALUE=1.00"
         ]
         self.gcode.run_script_from_command("\n".join(script))
 
         # Матрица тестовых значений и Y-координат
-        test_values = [0.0100, 0.0200, 0.0150, 0.0350, 0.0250, 0.0300, 0.0400]
+        test_values = [0.010, 0.020, 0.015, 0.035, 0.025, 0.030, 0.040]
         y_starts = [50.0, 55.0, 60.0, 65.0, 70.0, 75.0, 80.0]
 
         pass_minimums = []
@@ -2738,7 +2760,7 @@ class zmod_color:
                 y = y_starts[i]
 
                 self.pa_obj._pa_action_cmd.send([11, 666])
-                self.gcode.run_script_from_command(f"SET_PRESSURE_ADVANCE ADVANCE={val:.4f}")
+                self.gcode.run_script_from_command(f"SET_PRESSURE_ADVANCE ADVANCE={val:.3f}")
 
                 # Печать тестового паттерна
                 script = [
@@ -2756,7 +2778,6 @@ class zmod_color:
                     "G1 F1080",
                     "G1 X200 E1.13573",
                 ]
-
                 self.gcode.run_script_from_command("\n".join(script))
 
                 # Отправка команды на МК: закончить анализ (ACTION=0, PC=666)
@@ -2764,8 +2785,10 @@ class zmod_color:
                 self.gcode.run_script_from_command("M400")
 
                 # Опрос МК для получения оценки (0 или 9)
-                result = pa_obj._pa_value_get_cmd.send()
+                result = self.pa_obj._pa_value_get_cmd.send()
                 res_val = int(result["value"])
+
+                gcmd.respond_raw(f"// PA {val:.3f}: {'Ok' if res_val == 9 else '-'}")
 
                 # Ищем минимальное успешное значение в этом проходе
                 if res_val == 9:
@@ -2774,32 +2797,26 @@ class zmod_color:
 
             if min_success is not None:
                 pass_minimums.append(min_success)
-                gcmd.respond_info(f"Pass {pass_num + 1} minimum success: {min_success:.4f}")
+                gcmd.respond_raw(f"// Pass {pass_num + 1} minimum success: {min_success:.3f}")
             else:
-                gcmd.respond_info(f"Pass {pass_num + 1} failed to find any good PA value.")
+                gcmd.respond_raw(f"// Pass {pass_num + 1} failed to find any good PA value.")
 
         if len(pass_minimums) == 0:
             raise gcmd.error("PA calibration failed: No successful values found in any pass.")
 
         script = [
-            "SET_PIN PIN=enable_pin_tmc_x VALUE=0.00",
-            "SET_PIN PIN=enable_pin_tmc_y VALUE=0.00",
-            "SET_KINEMATIC_POSITION X=275.0000 Y=254.0000 Z=8.1712"
-NEED Z
+            "SET_PIN PIN=enable_pin_tmc_x VALUE=0.00",  # Включаем моторы
+            "SET_PIN PIN=enable_pin_tmc_y VALUE=0.00",  # Возвращаем координаты
+            f"SET_KINEMATIC_POSITION X={slot_config.get('trash_x'):.2f} Y={slot_config.get('trash_y'):.2f} Z={slot_config.get('trash_z'):.2f}",
+            f"M104 T{t_fiz} S{slot_config.get('temp_wait'):.2f}"  # Остужаем экструдер
         ]
         self.gcode.run_script_from_command("\n".join(script))
 
-
         # Среднее арифметическое минимальных успешных значений из каждого прохода
         final_pa = sum(pass_minimums) / len(pass_minimums)
-        gcmd.respond_info(f"Calculated optimal PA: {final_pa:.4f}")
-
-        # Формируем команду SET_PA_ADVANCE для нужного экструдера
-        t_params = ["99.0"] * 4
-        t_params[t_index] = f"{final_pa:.4f}"
-        cmd_str = f"SET_PA_ADVANCE T0={t_params[0]} T1={t_params[1]} T2={t_params[2]} T3={t_params[3]} ENABLE=1"
-        self.gcode.run_script_from_command(cmd_str)
-        gcmd.respond_info(f"Applied PA {final_pa:.4f} to T{t_index} via SET_PA_ADVANCE")
+        self.physical_pa[t_fiz] = round(final_pa, 4)
+        self.logical_pa[t_log] = round(final_pa, 4)
+        gcmd.respond_info(f"PA T{t_fiz} => T{t_log}: {self.physical_pa[t_fiz]:.4f}")
 
 def load_config(config):
     return zmod_color(config)
