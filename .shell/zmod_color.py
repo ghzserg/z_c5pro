@@ -473,8 +473,8 @@ TRANSLATIONS = {
         'config_success': "Configurações salvas",
         'error_auto_assign_result': "Falha na atribuição auto de carretel, código de retorno {}",
         'error_color_or_type': "Especifique HEX ou TIPO",
-        'error_leveling': "NIVELAMENTO inválido: {}. Válido: 0 ou 1",
-        'error_autopa': "NIVELAMENTO inválido: {}. Válido: 0 ou 1",
+        'error_leveling': "AUTOPA inválido: {}. Válido: 0 ou 1",
+        'error_autopa': "AUTOPA inválido: {}. Válido: 0 ou 1",
         'error_napr': "Direção inválida (0-1)",
         'error_native_screen_tool_count': "T4 ou superior não suportado no ecrã nativo, encontrado T{}",
         'error_no_filename': "Parâmetro NOME_DO_ARQUIVO faltando",
@@ -569,8 +569,8 @@ TRANSLATIONS = {
         'config_success': "Ayarlar kaydedildi",
         'error_auto_assign_result': "Makara otomatik atama hatası, dönüş kodu {}",
         'error_color_or_type': "HEX veya TÜR belirtin",
-        'error_leveling': "Geçersiz SEVİYELEME: {}. Geçerli: 0 veya 1",
-        'error_autopa': "Geçersiz SEVİYELEME: {}. Geçerli: 0 veya 1",
+        'error_leveling': "Geçersiz AUTOPA: {}. Geçerli: 0 veya 1",
+        'error_autopa': "Geçersiz AUTOPA: {}. Geçerli: 0 veya 1",
         'error_napr': "Geçersiz yön (0-1)",
         'error_native_screen_tool_count': "Yerel ekranda T4 veya üstü desteklenmiyor, T{} bulundu",
         'error_no_filename': "DOSYA_ADI parametresi eksik",
@@ -2039,6 +2039,7 @@ class zmod_color:
                     "SDCARD_SET_GCODE_EX_USED_BASE INDEX=1 EXTRUDER=T1",
                     "SDCARD_SET_GCODE_EX_USED_BASE INDEX=2 EXTRUDER=T2",
                     "SDCARD_SET_GCODE_EX_USED_BASE INDEX=3 EXTRUDER=T3",
+                    "M140 S{bed_temp:.1f}"
                 ]
 
                 for idx in range(4):
@@ -2340,11 +2341,8 @@ class zmod_color:
 
         gcmd.respond_info(
             f"Slot {zslot} Config ({slot_config.get('filament_type', 'UNKNOWN')}):\n"
-            f"  temp (auto purge): {slot_config.get('temp')}°C\n"
             f"  temp_manual:       {slot_config.get('temp_manual')}°C\n"
-            f"  temp_wait:         {slot_config.get('temp_wait')}°C\n"
             f"  tube_length:       {slot_config.get('filament_tube_length')} mm\n"
-            f"  drop_length:       {slot_config.get('filament_drop_length')} mm\n"
             f"  trash_position:    X={slot_config.get('trash_x')} Y={slot_config.get('trash_y')} Z={slot_config.get('trash_z')}"
         )
 
@@ -2411,9 +2409,7 @@ class zmod_color:
         gcmd.respond_info(
             f"T{t} ({slot_config.get('filament_type', 'UNKNOWN')}):\n"
             f"  temp (auto purge): {slot_config.get('temp')}°C\n"
-            f"  temp_manual:       {slot_config.get('temp_manual')}°C\n"
             f"  temp_wait:         {slot_config.get('temp_wait')}°C\n"
-            f"  tube_length:       {slot_config.get('filament_tube_length')} mm\n"
             f"  drop_length:       {slot_config.get('filament_drop_length')} mm\n"
             f"  trash_position:    X={slot_config.get('trash_x')} Y={slot_config.get('trash_y')} Z={slot_config.get('trash_z')}"
         )
@@ -2721,9 +2717,7 @@ class zmod_color:
         gcmd.respond_info(
             f"T{t_fiz} Config ({slot_config.get('filament_type', 'UNKNOWN')}):\n"
             f"  temp (auto purge): {slot_config.get('temp')}°C\n"
-            f"  temp_manual:       {slot_config.get('temp_manual')}°C\n"
             f"  temp_wait:         {slot_config.get('temp_wait')}°C\n"
-            f"  tube_length:       {slot_config.get('filament_tube_length')} mm\n"
             f"  drop_length:       {slot_config.get('filament_drop_length')} mm\n"
             f"  trash_position:    X={slot_config.get('trash_x')} Y={slot_config.get('trash_y')} Z={slot_config.get('trash_z')}"
         )
