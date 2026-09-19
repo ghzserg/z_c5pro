@@ -2025,6 +2025,7 @@ class zmod_color:
                 self.logical_pa = [99.0, 99.0, 99.0, 99.0]
 
                 script = [
+                    f"M140 S{bed_temp:.1f}",
                     "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=0",
                     "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0",
                     "SET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0",
@@ -2038,14 +2039,14 @@ class zmod_color:
                     "SDCARD_SET_GCODE_EX_USED_BASE INDEX=0 EXTRUDER=T0",
                     "SDCARD_SET_GCODE_EX_USED_BASE INDEX=1 EXTRUDER=T1",
                     "SDCARD_SET_GCODE_EX_USED_BASE INDEX=2 EXTRUDER=T2",
-                    "SDCARD_SET_GCODE_EX_USED_BASE INDEX=3 EXTRUDER=T3",
-                    f"M140 S{bed_temp:.1f}"
+                    "SDCARD_SET_GCODE_EX_USED_BASE INDEX=3 EXTRUDER=T3"
                 ]
 
                 for idx in range(4):
                     tool_val = tools[idx] if idx < len(tools) else (idx + 1)
                     script.append(f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX={idx} EXTRUDER=T{tool_val-1}")
 
+                script.append("SDCARD_SET_NEED_CHECK_EX CHECK=1")
                 self.gcode.run_script_from_command("\n".join(script))
 
                 # Если включен параметр autopa, запускаем подбор PA для всех используемых экструдеров
@@ -2065,8 +2066,7 @@ class zmod_color:
                     gcmd.respond_raw(f"SET_PA_ADVANCE T0={pa0:.4f} T1={pa1:.4f} T2={pa2:.4f} T3={pa3:.4f} ENABLE={pa_enable} // ZCOLOR")
 
                 script = [
-                    "SDCARD_SET_NEED_CHECK_EX CHECK=1",
-                    "MUTE_MODE_DISABLE",
+
                     f"_T_PREPARE T={t_start} BED_TEMP={bed_temp:.1f} FULL=0",
                     f"SDCARD_PRINT_FILE FILENAME=\"{fname}\""
                 ]
@@ -2461,7 +2461,8 @@ class zmod_color:
             "M106 P1 S0",
             "G1 Z10 F1200",
             "M400",
-            "SET_FAN_SPEED FAN=chamber_fan SPEED=0.500"         # Включаем выдув
+            "SET_FAN_SPEED FAN=chamber_fan SPEED=0.500",        # Включаем выдув
+            "MUTE_MODE_DISABLE"
         ]
         self.gcode.run_script_from_command("\n".join(script))
 
@@ -2686,6 +2687,7 @@ class zmod_color:
 
             script += [
                 "SDCARD_SET_NEED_CHECK_EX CHECK=1",
+                f"SDCARD_SET_CHANNEL CHANNEL={t_new}",
                 f"_A_CHANGE_FILAMENT T={t_new} HEAT=1"
             ]
             self.gcode.run_script_from_command("\n".join(script))
