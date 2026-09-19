@@ -2729,7 +2729,7 @@ class zmod_color:
             f"G1 X{slot_config.get('trash_x'):.2f} F2400",
             "M400",
             f"G1 Z{slot_config.get('trash_z'):.2f} F3000",
-            f"_WAIT_TEMP T={t_fiz} EXTRUDER_TEMP={slot_config.get('temp_manual'):.3f} BED_TEMP=0 FROM=_T_TEST_PA", # Греем сопло
+            f"_WAIT_TEMP T={t_fiz} EXTRUDER_TEMP={slot_config.get('temp'):.3f} BED_TEMP=0 FROM=_T_TEST_PA", # Греем сопло
             "SET_FAN_SPEED FAN=chamber_fan SPEED=0.000",        # Отключаем вентилятор на выдув из камеры
             "G92 E0",                                           # Готовим для теста
             "M83",
