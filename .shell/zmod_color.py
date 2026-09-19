@@ -2799,10 +2799,12 @@ class zmod_color:
             raise gcmd.error("PA calibration failed: No successful values found in any pass.")
 
         script = [
-            "SET_PIN PIN=enable_pin_tmc_x VALUE=0.00",  # Включаем моторы
-            "SET_PIN PIN=enable_pin_tmc_y VALUE=0.00",  # Возвращаем координаты
-            f"SET_KINEMATIC_POSITION X={slot_config.get('trash_x'):.2f} Y={slot_config.get('trash_y'):.2f} Z={slot_config.get('trash_z'):.2f}",
-            f"M104 T{t_fiz} S{slot_config.get('temp_wait'):.2f}"  # Остужаем экструдер
+            f"M104 T{t_fiz} S{slot_config.get('temp_wait'):.2f}", # Остужаем экструдер
+            f"G1 Y{slot_config.get('trash_y'):.2f} F24000",       # Возвращаем координаты
+            f"G1 X{slot_config.get('trash_x'):.2f} F2400",
+            "M400",
+            "SET_PIN PIN=enable_pin_tmc_x VALUE=0.00",            # Включаем моторы
+            "SET_PIN PIN=enable_pin_tmc_y VALUE=0.00"
         ]
         self.gcode.run_script_from_command("\n".join(script))
 
