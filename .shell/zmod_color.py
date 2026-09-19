@@ -2688,7 +2688,7 @@ class zmod_color:
                 gcmd.respond_raw(f"// analog for T{t_param} not found")
             self.gcode.run_script_from_command("PAUSE")
 
-    def set_autopa(self)
+    def set_autopa(self):
         pa0, pa1, pa2, pa3 = self.physical_pa
         pa_enable = 1 if any(pa != 99.0 for pa in [pa0, pa1, pa2, pa3]) else 0
 
