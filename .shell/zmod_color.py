@@ -624,7 +624,6 @@ class zmod_color:
 
         self.active_tool_id = -2
         self.physical_pa = [99.0, 99.0, 99.0, 99.0]     # PA физических экструдеров
-        self.logical_pa  = [99.0, 99.0, 99.0, 99.0]     # PA логических экструдеров из G-кода
 
         self.display = config.getboolean('display', True)
         self.lang = 'en'
@@ -2022,7 +2021,6 @@ class zmod_color:
                 t_start = tools[file_channel] - 1
 
                 self.physical_pa = [99.0, 99.0, 99.0, 99.0]
-                self.logical_pa = [99.0, 99.0, 99.0, 99.0]
 
                 script = [
                     f"M140 S{bed_temp:.1f}",
@@ -2055,15 +2053,11 @@ class zmod_color:
 
                     script = []
                     for idx, tool_val in enumerate(tools):
-                        script.append(f"_T_TEST_PA T_FIZ={tool_val - 1} T_LOG={idx}")
+                        script.append(f"_T_TEST_PA T_FIZ={tool_val - 1}")
                     script.append("M400")
                     self.gcode.run_script_from_command("\n".join(script))
 
-                    # Извлекаем логические значения PA
-                    pa0, pa1, pa2, pa3 = self.logical_pa
-                    pa_enable = 1 if any(pa != 99.0 for pa in [pa0, pa1, pa2, pa3]) else 0
-                    self.gcode.run_script_from_command(f"SET_PA_ADVANCE T0={pa0:.4f} T1={pa1:.4f} T2={pa2:.4f} T3={pa3:.4f} ENABLE={pa_enable}")
-                    gcmd.respond_raw(f"SET_PA_ADVANCE T0={pa0:.4f} T1={pa1:.4f} T2={pa2:.4f} T3={pa3:.4f} ENABLE={pa_enable} // ZCOLOR")
+                    self.set_autopa()
 
                 script = [
 
@@ -2679,11 +2673,7 @@ class zmod_color:
                 tool_val = tools[idx] if idx < len(tools) else (idx + 1)
                 script.append(f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX={idx} EXTRUDER=T{tool_val-1}")
 
-            # Извлекаем логические значения PA
-            pa0, pa1, pa2, pa3 = self.logical_pa
-            pa_enable = 1 if any(pa != 99.0 for pa in [pa0, pa1, pa2, pa3]) else 0
-            script.append(f"SET_PA_ADVANCE T0={pa0:.4f} T1={pa1:.4f} T2={pa2:.4f} T3={pa3:.4f} ENABLE={pa_enable}")
-            gcmd.respond_raw(f"SET_PA_ADVANCE T0={pa0:.4f} T1={pa1:.4f} T2={pa2:.4f} T3={pa3:.4f} ENABLE={pa_enable} // _T_FIND_ANALOG")
+            slf.set_autopa()
 
             script += [
                 "SDCARD_SET_NEED_CHECK_EX CHECK=1",
@@ -2698,21 +2688,24 @@ class zmod_color:
                 gcmd.respond_raw(f"// analog for T{t_param} not found")
             self.gcode.run_script_from_command("PAUSE")
 
+    def set_autopa(self)
+        pa0, pa1, pa2, pa3 = self.physical_pa
+        pa_enable = 1 if any(pa != 99.0 for pa in [pa0, pa1, pa2, pa3]) else 0
+
+        self.gcode.run_script_from_command(f"SET_PA_ADVANCE T0={pa0:.4f} T1={pa1:.4f} T2={pa2:.4f} T3={pa3:.4f} ENABLE={pa_enable}")
+        gcmd.respond_raw(f"SET_PA_ADVANCE T0={pa0:.4f} T1={pa1:.4f} T2={pa2:.4f} T3={pa3:.4f} ENABLE={pa_enable}")
+
     def cmd_TEST_PA(self, gcmd):
         t_fiz = gcmd.get_int('T_FIZ', None)
         if t_fiz is None or t_fiz < 0 or t_fiz > 3:
             raise gcmd.error("Error: T_FIZ parameter is required and must be between 0 and 3")
-        t_log = gcmd.get_int('T_LOG', None)
-        if t_log is None or t_log < 0 or t_log > 3:
-            raise gcmd.error("Error: T_LOG parameter is required and must be between 0 and 3")
 
         # Проверяем, есть ли уже посчитанный PA для этого физического экструдера
         if self.physical_pa[t_fiz] != 99.0:
-            self.logical_pa[t_log] = self.physical_pa[t_fiz]
-            gcmd.respond_info(f"PA T{t_fiz} => T{t_log}: {self.physical_pa[t_fiz]:.4f}")
+            gcmd.respond_info(f"PA T{t_fiz}: {self.physical_pa[t_fiz]:.4f}")
             return
         else:
-            gcmd.respond_info(f"PA T{t_fiz} => T{t_log}: ...")
+            gcmd.respond_info(f"PA T{t_fiz}: ...")
 
         slot_config = self.get_filament_config_t(t_fiz)
 
@@ -2813,8 +2806,7 @@ class zmod_color:
         # Среднее арифметическое минимальных успешных значений из каждого прохода
         final_pa = sum(pass_minimums) / len(pass_minimums)
         self.physical_pa[t_fiz] = round(final_pa, 4)
-        self.logical_pa[t_log] = round(final_pa, 4)
-        gcmd.respond_info(f"PA T{t_fiz} => T{t_log}: {self.physical_pa[t_fiz]:.4f}")
+        gcmd.respond_info(f"PA T{t_fiz}: {self.physical_pa[t_fiz]:.4f}")
 
 def load_config(config):
     return zmod_color(config)
