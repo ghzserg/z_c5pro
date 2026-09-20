@@ -46,7 +46,6 @@ a1313318d6778fe6b8c680248ef5a463  ./etc/iproute2/rt_tables
 6dfcf6cab3621512d9f3f62de948bf37  ./etc/issue
 3e07259e58674631830b152e983ca995  ./etc/libnl/classid
 7613dbc41b2dc3258195b6b6abd0f179  ./etc/libnl/pktloc
-888b76e403db5fb0ebf6c5c67290a86e  ./etc/logo.jpeg
 1ec4e964fd30499bfa956cbb471dd0f5  ./etc/mdev.conf
 12080d34c91e6b39fbe5406c17246a14  ./etc/mke2fs.conf
 f0c6c4cd97dbe4dfb2d7e1db90c12697  ./etc/network/if-pre-up.d/wait_iface
@@ -269,20 +268,6 @@ a91c252cd3ad9949d887727b045f8730  ./usr/bin/testj1939
 59ef41c65ae4698bcaafc21622489a39  ./usr/bin/tree
 0068f8a233122cea36f4a6cd5f7a2e3d  ./usr/bin/xmlwf
 4f8a4a4a71223a240a1b55eedefd6f20  ./usr/data/firmwareRes/camera.png
-310e22af377a19e4027f43b500a9f8bb  ./usr/data/firmwareRes/config/extruder.json
-a91e5d98d6235cc85a26567dbfb89521  ./usr/data/firmwareRes/config/filament.json
-dd57249086de86c256fca9a4a4dfd8a5  ./usr/data/firmwareRes/config/general.json
-c4b7ca1be677da7d67f80bd0e8aa29a0  ./usr/data/firmwareRes/config/network.json
-371ac2bc2caf3a4ab015cfc727a48387  ./usr/data/firmwareRes/config/print.json
-6b7776f91eb04a55914ff60aebcfb2e7  ./usr/data/firmwareRes/config/recovery_flag.json
-8dbeb8444069a651efbbc56ea00f2e98  ./usr/data/firmwareRes/config/recovery.json
-133b087e5fd1229bec0bf03c950e60c0  ./usr/data/firmwareRes/config/rsapub.pem
-a8da9610298982615256e64fd9e84ba4  ./usr/data/firmwareRes/config/start.sh
-9f8628a1d11315e9b94e05bb8e88cb4c  ./usr/data/firmwareRes/config/test.json
-de93a924eb73d2aee1b8667e5800b7f2  ./usr/data/firmwareRes/config/time.json
-50ab4f0dce6bef33d68bebc307c0d4d0  ./usr/data/firmwareRes/config/total.json
-3f487f5f67cd795db292ff73b81f0542  ./usr/data/firmwareRes/config/userInfo.json
-942feed7d479654cb5719f4e82fbd62a  ./usr/data/firmwareRes/config/zoffset.json
 28d64af66b79eff936c14a8f444e3ac3  ./usr/data/firmwareRes/font/code2000.ttf
 5a9bbb1effd5f8396b37d0b67958a51e  ./usr/data/firmwareRes/font/HarmonyOS_Sans_SC_Medium.ttf
 69aa5b1b2573ec2c2d540e42dcd21108  ./usr/data/firmwareRes/font/HarmonyOS_Sans_SC_Regular.ttf
@@ -302,8 +287,6 @@ caf86fb28c944583d815a9f1d9f9e52b  ./usr/data/firmwareRes/img/app/default.png
 b0701c327f5bc4cb8152fbb35858feeb  ./usr/data/firmwareRes/img/app/.png
 6199bf3b9419ffba4df563535c328c89  ./usr/data/firmwareRes/img/app/test.jpg
 2f2097b0134f66ed3d30aa482b80de0d  ./usr/data/firmwareRes/img/app/test.png
-70af173c950b10e06009147f6d2435a9  ./usr/data/firmwareRes/img/app/userImg.jpg.part
-31c73fc32708b30db468572f47c0357e  ./usr/data/firmwareRes/img/app/userImg.png
 d3aa59fb034a0a4fd7dedb857c528e19  ./usr/data/firmwareRes/img/build/chamber.png
 b7bf315e2f4f6c815696499f1288eec8  ./usr/data/firmwareRes/img/build/cool.png
 24c0aabaa6dc55c0fd7ed2bf4e78ede9  ./usr/data/firmwareRes/img/build/dec_d.png
@@ -637,7 +620,6 @@ af3b4373f187d11256f09075dc061230  ./usr/data/firmwareRes/img/preBuild/unchecked.
 c78569af4ff166d91ca30d95726fa74d  ./usr/data/firmwareRes/img/preBuild/weight.png
 68e7c2b45f8c920ec9534e7163760c12  ./usr/data/firmwareRes/img/qrencode/default_big.png
 7db9ea72ee480c28ace1e0e5ac084255  ./usr/data/firmwareRes/img/qrencode/default.png
-9366b86fcc52502eb5a2cb11026ed5bd  ./usr/data/firmwareRes/img/qrencode/qrencode.png
 6199bf3b9419ffba4df563535c328c89  ./usr/data/firmwareRes/img/qrencode/test.jpg
 7db9ea72ee480c28ace1e0e5ac084255  ./usr/data/firmwareRes/img/setting/account.png
 3b3dea997290fed9c16e27aeca910f09  ./usr/data/firmwareRes/img/setting/camera.png
@@ -1221,7 +1203,6 @@ a1313318d6778fe6b8c680248ef5a463  ./usr/prog/etc/iproute2/rt_tables
 6dfcf6cab3621512d9f3f62de948bf37  ./usr/prog/etc/issue
 3e07259e58674631830b152e983ca995  ./usr/prog/etc/libnl/classid
 7613dbc41b2dc3258195b6b6abd0f179  ./usr/prog/etc/libnl/pktloc
-888b76e403db5fb0ebf6c5c67290a86e  ./usr/prog/etc/logo.jpeg
 1ec4e964fd30499bfa956cbb471dd0f5  ./usr/prog/etc/mdev.conf
 12080d34c91e6b39fbe5406c17246a14  ./usr/prog/etc/mke2fs.conf
 f0c6c4cd97dbe4dfb2d7e1db90c12697  ./usr/prog/etc/network/if-pre-up.d/wait_iface
@@ -2152,7 +2133,6 @@ a75945769b8a0254722e9c1c5ff56b97  ./usr/prog/klipper/klippy/extras/tmc.py
 ba54c5a953fa31b5677ee8e88321a731  ./usr/prog/klipper/klippy/extras/tsl1401cl_filament_width_sensor.py
 14f4a56540626e8ebed20585cb16bd22  ./usr/prog/klipper/klippy/extras/tuning_tower.py
 46f02453e4c29d51187c8fb45569ff18  ./usr/prog/klipper/klippy/extras/verify_heater.py
-b93e07ce0c02385506fb5c4ad4de49d8  ./usr/prog/klipper/klippy/extras/virtual_sdcard.py
 5a33a055340196bc484ae8861693da50  ./usr/prog/klipper/klippy/extras/virtual_sdcard.py.ok
 5ab083031fb0b988c214560ccaf3c1c4  ./usr/prog/klipper/klippy/extras/z_thermal_adjust.py
 f4cb3fde782342926d0ea52dd26d3013  ./usr/prog/klipper/klippy/extras/z_tilt.py
@@ -3870,7 +3850,6 @@ d287f499d1938acaa56aa89480866e58  ./usr/prog/libzip-1.10.1/share/man/man3/zip_so
 1edb48cf78a07c647857948929e10ee4  ./usr/prog/libzip-1.10.1/share/man/man3/zip_unchange.3
 21f9654c14e94fa36ddb8c27efa46097  ./usr/prog/libzip-1.10.1/share/man/man3/zip_unchange_all.3
 ffe0e242c838b5792672cd8976511e70  ./usr/prog/libzip-1.10.1/share/man/man3/zip_unchange_archive.3
-68e1524a9894cdd61bd3c15ed34a6149  ./usr/prog/logo.jpeg
 90b77dbb7c42c9051c7593d995725e63  ./usr/prog/main2.jpg
 883d425e9adffa6e94ce777730166555  ./usr/prog/mjpg-streamer/input_file.so
 92bf55f4f691cd2c1ed9bf09818295b8  ./usr/prog/mjpg-streamer/input_http.so
@@ -5773,7 +5752,6 @@ e9fd19c7d1f0cecbd46b3cb041ae19c7  ./usr/prog/nginx/conf/scgi_params.default
 3749ffe19bedd842eb87e83d544e5ce6  ./usr/prog/nginx/conf/win-utf
 d74f9cdd604653c22c6752c46fffd587  ./usr/prog/nginx/html/50x.html
 e3eb0a1df437f3f97a64aca5952c8ea0  ./usr/prog/nginx/html/index.html
-025ce59fab18cc6e29d7cba7b60f3162  ./usr/prog/nginx/off
 e7bf6f5c3f43d7a85a65eff9592a865e  ./usr/prog/nginx/sbin/nginx
 e7bf6f5c3f43d7a85a65eff9592a865e  ./usr/prog/nginx/sbin/nginx.old
 ad04afb943c3e5742becca48dc91cbf2  ./usr/prog/opencv-4.2/bin/opencv_annotation

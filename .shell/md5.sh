@@ -100,6 +100,17 @@ excludes=(
     -and -not -path "./usr/prog/moonraker/moonraker/*"
     -and -not -path "./usr/data/FlashForge-TestModel-01.3mf"
     -and -not -path "./usr/prog/klipper/start.sh"
+    -and -not -path "./etc/logo.jpeg"
+    -and -not -path "./usr/data/firmwareRes/config/*"
+    -and -not -path "./usr/data/firmwareRes/img/app/userImg.jpg.part"
+    -and -not -path "./usr/data/firmwareRes/img/app/userImg.png"
+    -and -not -path "./usr/data/firmwareRes/img/qrencode/qrencode.png"
+    -and -not -path "./usr/prog/etc/logo.jpeg"
+    -and -not -path "./usr/prog/klipper/klippy/extras/virtual_sdcard.py"
+    -and -not -path "./usr/prog/logo.jpeg"
+    -and -not -path "./usr/prog/nginx/off"
+    -and -not -path "./etc/dropbear"
+    -and -not -path "./usr/prog/etc/dropbear"
 )
 
 find . \
