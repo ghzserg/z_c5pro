@@ -2434,7 +2434,7 @@ class zmod_color:
             self.gcode.run_script_from_command("G90")
 
         current_z_offset = self.gcode_move.homing_position[2]
-        wiper_z = slot_config.get('wiper_z') - current_z_offset
+        wiper_z = slot_config.get('wiper_z')# - current_z_offset
 
         script = [
             f"M140 S{bed_temp:.1f}",                            # Греем стол
