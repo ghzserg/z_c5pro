@@ -2024,8 +2024,15 @@ class zmod_color:
                 else:
                     gcmd.respond_raw(self._t('printing_error', response_data2))
             else:
-                with open(FILE_CONFIG, 'w', encoding='utf-8') as file:
-                    json.dump(tools, file, indent=2)
+                try:
+                    with open(FILE_CONFIG, 'w', encoding='utf-8') as file:
+                        json.dump(tools, file, indent=2)
+                except Exception as e:
+                    if self.lang == 'ru':
+                        msg = f"Ошибка перезаписи FILE_CONFIG: {str(e)}"
+                    else:
+                        msg = f"Error rewriting FILE_CONFIG: {str(e)}"
+                    raise gcmd.error(msg)
 
                 file_channel, bed_temp = self.find_t_code(fname)
                 t_start = tools[file_channel] - 1
@@ -2835,8 +2842,15 @@ class zmod_color:
 
 
     def cmd_T_PREPARE_RESTORE(self, gcmd):
-        with open(FILE_CONFIG, 'w', encoding='utf-8') as file:
-            json.dump(tools, file, indent=2)
+        try:
+            with open(FILE_CONFIG, 'r', encoding='utf-8') as file:
+                tools = json.load(file)
+        except Exception as e:
+            if self.lang == 'ru':
+                msg = f"Ошибка чтения FILE_CONFIG: {str(e)}"
+            else:
+                msg = f"Error reading FILE_CONFIG: {str(e)}"
+            raise gcmd.error(msg)
 
         script = [
             "SET_PA_ADVANCE T0=99.0 T1=99.0 T2=99.0 T3=99.0 ENABLE=0",
