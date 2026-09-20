@@ -1,7 +1,7 @@
 {
   "config_path": "/root/guppyscreen/guppyconfig.json",
   "default_printer": "C5Pro",
-  "display_brightness": 90,
+  "display_brightness": 100,
   "display_rotate": 1,
   "display_sleep_sec": 300,
   "guppy_init_script": "/etc/init.d/S80guppyscreen",
