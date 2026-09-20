@@ -682,6 +682,7 @@ class zmod_color:
         self.gcode.register_command('_T_CHANGE_FILAMENT', self.cmd_T_CHANGE_FILAMENT)     # Сменить филамент
         self.gcode.register_command('_T_FIND_ANALOG', self.cmd_T_FIND_ANALOG)   # Поиск аналогмичного прутка
         self.gcode.register_command('_T_TEST_PA', self.cmd_TEST_PA)       # Подбор PA
+        self.gcode.register_command('_T_PREPARE_RESTORE', self.cmd_Е_PREPARE_RESTORE) # Включение всех перенаправлений
 
         self.printer.register_event_handler("klippy:ready", self._handle_ready)
 
@@ -2831,6 +2832,30 @@ class zmod_color:
         final_pa = sum(pass_minimums) / len(pass_minimums)
         self.physical_pa[t_fiz] = round(final_pa, 4)
         gcmd.respond_info(f"PA T{t_fiz}: {self.physical_pa[t_fiz]:.4f}")
+
+
+    def cmd_PREPARE_RESTORE(self, gcmd):
+        with open(FILE_CONFIG, 'w', encoding='utf-8') as file:
+            json.dump(tools, file, indent=2)
+
+        script = [
+            "SET_PA_ADVANCE T0=99.0 T1=99.0 T2=99.0 T3=99.0 ENABLE=0",
+            "SET_FAN_M106P2 ADJUSTED=0 FACTOR=0",
+            "SET_FAN_M106 ADJUSTED=0 FACTOR=0",
+            "SDCARD_NO_FILAMENT_CHECK_EX CHECK=0",
+            "SDCARD_SET_NEED_CHECK_EX CHECK=0",
+            "SDCARD_SET_GCODE_EX_USED_BASE INDEX=0 EXTRUDER=T0",
+            "SDCARD_SET_GCODE_EX_USED_BASE INDEX=1 EXTRUDER=T1",
+            "SDCARD_SET_GCODE_EX_USED_BASE INDEX=2 EXTRUDER=T2",
+            "SDCARD_SET_GCODE_EX_USED_BASE INDEX=3 EXTRUDER=T3"
+        ]
+
+        for idx in range(4):
+            tool_val = tools[idx] if idx < len(tools) else (idx + 1)
+            script.append(f"SDCARD_SET_GCODE_EX_USED_CHANGED INDEX={idx} EXTRUDER=T{tool_val-1}")
+
+        script.append("SDCARD_SET_NEED_CHECK_EX CHECK=1")
+        self.gcode.run_script_from_command("\n".join(script))
 
 def load_config(config):
     return zmod_color(config)
