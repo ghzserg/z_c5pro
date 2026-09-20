@@ -682,7 +682,7 @@ class zmod_color:
         self.gcode.register_command('_T_CHANGE_FILAMENT', self.cmd_T_CHANGE_FILAMENT)     # Сменить филамент
         self.gcode.register_command('_T_FIND_ANALOG', self.cmd_T_FIND_ANALOG)   # Поиск аналогмичного прутка
         self.gcode.register_command('_T_TEST_PA', self.cmd_TEST_PA)       # Подбор PA
-        self.gcode.register_command('_T_PREPARE_RESTORE', self.cmd_Е_PREPARE_RESTORE) # Включение всех перенаправлений
+        self.gcode.register_command('_T_PREPARE_RESTORE', self.cmd_T_PREPARE_RESTORE) # Включение всех перенаправлений
 
         self.printer.register_event_handler("klippy:ready", self._handle_ready)
 
