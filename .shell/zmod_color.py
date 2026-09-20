@@ -2834,7 +2834,7 @@ class zmod_color:
         gcmd.respond_info(f"PA T{t_fiz}: {self.physical_pa[t_fiz]:.4f}")
 
 
-    def cmd_PREPARE_RESTORE(self, gcmd):
+    def cmd_T_PREPARE_RESTORE(self, gcmd):
         with open(FILE_CONFIG, 'w', encoding='utf-8') as file:
             json.dump(tools, file, indent=2)
 
