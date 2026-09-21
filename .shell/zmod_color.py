@@ -682,7 +682,8 @@ class zmod_color:
         self.gcode.register_command('_T_CHANGE_FILAMENT', self.cmd_T_CHANGE_FILAMENT)     # Сменить филамент
         self.gcode.register_command('_T_FIND_ANALOG', self.cmd_T_FIND_ANALOG)   # Поиск аналогмичного прутка
         self.gcode.register_command('_T_TEST_PA', self.cmd_TEST_PA)       # Подбор PA
-        self.gcode.register_command('_T_PREPARE_RESTORE', self.cmd_T_PREPARE_RESTORE) # Включение всех перенаправлений
+        self.gcode.register_command('_T_PREPARE_RESTORE', self.cmd_T_PREPARE_RESTORE) # Включение всех перенаправлений для восстановления печати после перезагрузки
+        self.gcode.register_command('_T_CALIBRATE_EXTRUDERS', self.cmd_T_CALIBRATE_EXTRUDERS)   # Калибровка экструдеров
 
         self.printer.register_event_handler("klippy:ready", self._handle_ready)
 
@@ -2870,6 +2871,282 @@ class zmod_color:
 
         script.append("SDCARD_SET_NEED_CHECK_EX CHECK=1")
         self.gcode.run_script_from_command("\n".join(script))
+
+    CALIB_LIFT_MM       = 3.0
+    CALIB_FEED_SLOW     = 1200
+    CALIB_FEED_FAST     = 12000
+    CALIB_FEED_APPROACH = 12000
+
+    def _call_estop_axis(self, gcmd, axis_name, target_val):
+        estop_mux = self.printer.lookup_object(f"estop {axis_name}", None)
+        if estop_mux is None:
+            raise gcmd.error(
+                f"Модуль [estop {axis_name}] не найден в конфигурации Klipper!")
+
+        old_offset = estop_mux.position_offset
+        try:
+            estop_mux.position_offset = float(target_val)
+            measured_pos = estop_mux.run_probe(gcmd)
+        finally:
+            estop_mux.position_offset = old_offset
+
+        if measured_pos is None:
+            raise gcmd.error(f"estop {axis_name}: run_probe вернул None")
+        return measured_pos
+
+    def _calculate_circle_center(self, x1, y1, x2, y2):
+        return (x1 + x2) / 2.0, (y1 + y2) / 2.0
+
+    def _safe_g1(self, x=None, y=None, z=None, feed=None):
+        feed = self.CALIB_FEED_SLOW if feed is None else feed
+        parts = []
+        if z is not None:
+            parts.append(f"G1 Z{z:.3f} F{self.CALIB_FEED_SLOW}")
+        if x is not None and y is not None:
+            parts.append(f"G1 X{x:.3f} Y{y:.3f} F{feed}")
+        elif x is not None:
+            parts.append(f"G1 X{x:.3f} F{feed}")
+        elif y is not None:
+            parts.append(f"G1 Y{y:.3f} F{feed}")
+        if not parts:
+            return
+        parts.append("M400")
+        self.gcode.run_script_from_command("\n".join(parts))
+
+    def _reset_gcode_offset(self):
+        self.gcode.run_script_from_command("SET_GCODE_OFFSET X=0 Y=0 Z=0 MOVE=0 MOVE_SPEED=600\nM400")
+
+    def _assert_zero_offset(self, gcmd, where):
+        try:
+            homing = self.gcode_move.homing_position
+            if not isinstance(homing, (list, tuple)):
+                return
+            n = min(len(homing), 3)   # только X, Y, Z
+            deltas = [abs(float(homing[i])) for i in range(n)]
+            if any(d > 1e-3 for d in deltas):
+                gcmd.respond_info(
+                    f"[CALIB] WARNING ({where}): активен gcode_offset "
+                    f"homing_position={list(homing)[:3]}. Сбрасываю.")
+                self._reset_gcode_offset()
+        except (AttributeError, TypeError, ValueError, IndexError):
+            pass
+
+    def _measure_xy_ring(self, gcmd, cx, cy, search):
+        xp = self._call_estop_axis(gcmd, "X", cx + search)
+        self._safe_g1(x=cx, y=cy)
+        yp = self._call_estop_axis(gcmd, "Y", cy + search)
+        self._safe_g1(x=cx, y=cy)
+        xm = self._call_estop_axis(gcmd, "X", cx - search)
+        self._safe_g1(x=cx, y=cy)
+        ym = self._call_estop_axis(gcmd, "Y", cy - search)
+        self._safe_g1(x=cx, y=cy)
+        return self._calculate_circle_center(xp, yp, xm, ym)
+
+    def _two_pass_measure(self, gcmd, nominal_x, nominal_y,
+                          z_p1, z_p2, hover, search):
+        self._assert_zero_offset(gcmd, "two_pass_measure:start")
+
+        # Pass 1
+        self._safe_g1(x=nominal_x, y=nominal_y, feed=self.CALIB_FEED_FAST)
+        z1 = self._call_estop_axis(gcmd, "Z", z_p1)
+        hover1 = z1 + hover
+        self._safe_g1(z=hover1)
+        cx1, cy1 = self._measure_xy_ring(gcmd, nominal_x, nominal_y, search)
+        gcmd.respond_info(
+            f"  Pass1: center=({cx1:.4f}, {cy1:.4f}) Z={z1:.4f}")
+
+        # Pass 2
+        lift_z = z1 + self.CALIB_LIFT_MM
+        self._safe_g1(z=lift_z)
+        self._safe_g1(x=cx1, y=cy1, feed=self.CALIB_FEED_APPROACH)
+        z2 = self._call_estop_axis(gcmd, "Z", z_p2)
+        hover2 = z2 + hover
+        self._safe_g1(z=hover2)
+        cx2, cy2 = self._measure_xy_ring(gcmd, cx1, cy1, search)
+        gcmd.respond_info(
+            f"  Pass2: center=({cx2:.4f}, {cy2:.4f}) Z={z2:.4f}")
+
+        return cx2, cy2, z2
+
+    def _write_to_extruder_json(self, gcmd, results):
+        file_path = FFCONFIG + 'extruder.json'
+        try:
+            with open(file_path, 'r', encoding='utf-8') as file:
+                raw_content = file.read()
+            clean_content = re.sub(r'/\*.*?\*/', '', raw_content,
+                                   flags=re.DOTALL)
+            extruder_cfg = json.loads(clean_content)
+
+            for key, val in results.items():
+                extruder_cfg[key] = round(float(val), 6)
+
+            new_json_str = json.dumps(extruder_cfg, indent=3)
+            with open(file_path, 'w', encoding='utf-8') as file:
+                file.write(new_json_str + "\n/* Printer Extruder Offset Config */")
+            return True
+        except Exception as e:
+            raise gcmd.error(
+                f"Ошибка при записи результатов в extruder.json: {str(e)}")
+
+    # Калибровка экструдеров
+    def cmd_T_CALIBRATE_EXTRUDERS(self, gcmd):
+        if self.lang == 'ru':
+            gcmd.respond_info("Запуск автоматической калибровки экструдеров...")
+        else:
+            gcmd.respond_info("Starting automatic extruder calibration...")
+
+        try:
+            with open(FFCONFIG + 'extruder.json', 'r', encoding='utf-8') as file:
+                clean_content = re.sub(r'/\*.*?\*/', '', file.read(), flags=re.DOTALL)
+                ext_cfg = json.loads(clean_content)
+
+            default_station_x = float(ext_cfg.get("x_station_pos", 28.500))
+            default_station_y = float(ext_cfg.get("y_station_pos", 214.500))
+        except Exception:
+            default_station_x = 28.500
+            default_station_y = 214.500
+
+        bed_temp    = gcmd.get_float('BED_TEMP',    65.0)
+        search      = gcmd.get_float('SEARCH',      14.0)
+        hover       = gcmd.get_float('HOVER',        0.6)
+        safe_z      = gcmd.get_float('SAFE_Z',      10.0)
+
+        ts_z_p1     = gcmd.get_float('TS_Z_P1',     -4.940)
+        ts_z_p2     = gcmd.get_float('TS_Z_P2',     -3.000)
+        t_z_p1      = gcmd.get_float('T_Z_P1',       0.060)
+        t_z_p2      = gcmd.get_float('T_Z_P2',      -3.000)
+        station_x   = gcmd.get_float('STATION_X',  default_station_x)
+        station_y   = gcmd.get_float('STATION_Y',  default_station_y)
+        extruder_x  = gcmd.get_float('EXTRUDER_X', 16.000)
+
+        # 0. Снять инструмент, HOME, обнулить offset
+        script = [
+            "G28",
+            "G90",
+            "SET_GCODE_OFFSET X=0 Y=0 Z=0 MOVE=0 MOVE_SPEED=600",
+            "M400",
+            f"_WAIT_TEMP T=0 EXTRUDER_TEMP=0 BED_TEMP={bed_temp:.1f} FROM=_T_CALIBRATE_EXTRUDER",
+            "SET_VELOCITY_LIMIT ACCEL=100",
+            "M400",
+        ]
+        self.gcode.run_script_from_command("\n".join(script))
+
+        # 1. Станция TS
+        gcmd.respond_info("[CALIB] Шаг 1/2: замер станции TS")
+        self._safe_g1(x=station_x, y=station_y, feed=self.CALIB_FEED_FAST)
+        self._safe_g1(z=safe_z)
+
+        ts_cx, ts_cy, ts_z = self._two_pass_measure(
+            gcmd,
+            nominal_x=station_x, nominal_y=station_y,
+            z_p1=ts_z_p1, z_p2=ts_z_p2,
+            hover=hover, search=search)
+
+        gcmd.respond_info(f"[CALIB] TS final: X={ts_cx:.4f} Y={ts_cy:.4f} Z={ts_z:.4f}")
+
+        script = [
+            "SET_VELOCITY_LIMIT ACCEL=20000",
+            f"G1 Z{safe_z:.2f} F1200",
+            "M400"
+        ]
+        self.gcode.run_script_from_command("\n".join(script))
+
+        new_offsets = {
+            "x_station_pos": ts_cx,
+            "y_station_pos": ts_cy,
+            "z_station_pos": ts_z,
+        }
+
+        # 2. Экструдеры
+        for t_idx in range(self.color_limit):
+            gcmd.respond_info(f"[CALIB] Шаг 2/2: экструдер T{t_idx}")
+
+            self.gcode.run_script_from_command(f"_T_IN T={t_idx}")
+            self._reset_gcode_offset()
+
+            try:
+                t_cfg      = self.get_filament_config_t(t_idx)
+                purge_temp = t_cfg.get('temp', 240)
+                wait_temp  = t_cfg.get('temp_wait', 140)
+                trash_x    = t_cfg.get('trash_x',   275.0)
+                trash_y    = t_cfg.get('trash_y',   254.0)
+                wiper_x    = t_cfg.get('wiper_x',   266.50)
+                wiper_y    = t_cfg.get('wiper_y',    13.80)
+                wiper_z    = t_cfg.get('wiper_z',     1.0)
+                drop_len   = t_cfg.get('filament_drop_length', 50.0)
+                fan_speed  = t_cfg.get('fan_speed', 255.0)
+
+                script = [
+                    f"G1 X250 F12000",
+                    f"G1 Y{trash_y:.3f} F24000",
+                    f"G1 X{trash_x:.3f} F2400",
+                    "M400",
+                    f"_WAIT_TEMP T={t_idx} EXTRUDER_TEMP={purge_temp:.3f} BED_TEMP={bed_temp:.1f} FROM=_T_CALIBRATE_EXTRUDER",
+                    "G92 E0",
+                    f"G1 E{drop_len:.3f} F240",
+                    "M400",
+                    f"M106 P1 S{fan_speed:.3f}",
+                    "G92 E0",
+                    "G1 E-5 F240",
+                    "M400",
+                    "G1 X250 F6000",
+                    f"G1 Y{wiper_y:.3f} F24000",
+                    f"G1 X{wiper_x:.3f} F6000",
+                    "M400",
+                    f"G1 Z{wiper_z:.3f} F600",
+                    "M400",
+                    f"_WAIT_TEMP T={t_idx} EXTRUDER_TEMP={wait_temp:.3f} BED_TEMP={bed_temp:.1f} FROM=_T_CALIBRATE_EXTRUDER",
+                    "M106 P1 S0",
+                    f"G1 Z{safe_z:.2f} F1200",
+                    "M400",
+                    "SET_VELOCITY_LIMIT ACCEL=100",
+                    "M400"
+                ]
+                self.gcode.run_script_from_command("\n".join(script))
+
+                self._safe_g1(x=extruder_x, y=station_y, feed=self.CALIB_FEED_FAST)
+
+                t_cx, t_cy, t_z = self._two_pass_measure(
+                    gcmd,
+                    nominal_x=extruder_x, nominal_y=station_y,
+                    z_p1=t_z_p1, z_p2=t_z_p2,
+                    hover=hover, search=search)
+
+                new_offsets[f"t{t_idx}_offset_x"] = t_cx
+                new_offsets[f"t{t_idx}_offset_y"] = t_cy
+                new_offsets[f"t{t_idx}_offset_z"] = t_z
+
+                gcmd.respond_info(f"[CALIB] T{t_idx} final: X={t_cx:.6f} Y={t_cy:.6f} Z={t_z:.6f}")
+
+            finally:
+                script = [
+                    "SET_VELOCITY_LIMIT ACCEL=20000",
+                    f"G1 Z{safe_z:.2f} F1200",
+                    "M400",
+                    f"M104 S0 T{t_idx}"
+                ]
+                self.gcode.run_script_from_command("\n".join(script))
+                try:
+                    self.gcode.run_script_from_command("_T_OUT")
+                except Exception:
+                    pass
+
+        script = [
+            "M140 S0",
+            "SET_IDLE_TIMEOUT TIMEOUT=600",
+            "G1 Z100 F1200",
+            "M400"
+        ]
+        self.gcode.run_script_from_command("\n".join(script))
+
+        # 4. Запись
+        if self._write_to_extruder_json(gcmd, new_offsets):
+            if self.lang == 'ru':
+                gcmd.respond_info(
+                    "Калибровка завершена! Значения записаны в extruder.json.")
+            else:
+                gcmd.respond_info(
+                    "Calibration complete! Values written to extruder.json.")
 
 def load_config(config):
     return zmod_color(config)
