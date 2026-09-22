@@ -2914,7 +2914,7 @@ class zmod_color:
         self.gcode.run_script_from_command("\n".join(parts))
 
     def _reset_gcode_offset(self):
-        self.gcode.run_script_from_command("SET_GCODE_OFFSET X=0 Y=0 Z=0 MOVE=0 MOVE_SPEED=600 FROM=_T_CALIBRATE_EXTRUDERS\nM400")
+        self.gcode.run_script_from_command("_SET_GCODE_OFFSET_FAST X=0 Y=0 Z=0 MOVE=0 MOVE_SPEED=600 FROM=_T_CALIBRATE_EXTRUDERS\nM400")
 
     def _assert_zero_offset(self):
         try:
@@ -3022,7 +3022,7 @@ class zmod_color:
             "G28",
             "G90",
             "BED_MESH_CLEAR FROM=_T_CALIBRATE_EXTRUDERS",
-            "SET_GCODE_OFFSET X=0 Y=0 Z=0 MOVE=0 MOVE_SPEED=600 FROM=_T_CALIBRATE_EXTRUDERS",
+            "_SET_GCODE_OFFSET_FAST X=0 Y=0 Z=0 MOVE=0 MOVE_SPEED=600 FROM=_T_CALIBRATE_EXTRUDERS",
             "M400",
             f"M140 S{bed_temp:.1f}"
             f"_WAIT_TEMP T=0 EXTRUDER_TEMP=0 BED_TEMP={bed_temp:.1f} FROM=_T_CALIBRATE_EXTRUDER",
