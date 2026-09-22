@@ -51,7 +51,7 @@ TRANSLATIONS = {
         'error_type': "Неверный тип материала: {}. Допустимо: {}",
         'file_tool': "Файл",
         'hide_color_selection': "Скрыть выбор цвета, печатать без IFS",
-        'load_error': "!! Ошибка загрузки / выгружки\n{}",
+        'load_error': "!! Ошибка загрузки / выгрузки\n{}",
         'load_success': "Загрузка началась",
         'load': "Загрузить",
         'no_prepared_data_scanning': "Подготовленные данные о цвете не найдены. Сканирование файла",
@@ -676,11 +676,11 @@ class zmod_color:
         self.gcode.register_command('_T_STATUS', self.cmd_T_STATUS)       # Получить статус
         self.gcode.register_command('_T_INFO', self.cmd_T_STATUS)         # Получить статус
         self.gcode.register_command('_T_G28', self.cmd_T_G28)             # Защищенный G28
-        self.gcode.register_command('_T_RESTORE', self.cmd_T_RESTORE)     # Восстновить сохраненный экструдер
+        self.gcode.register_command('_T_RESTORE', self.cmd_T_RESTORE)     # Восстановить сохраненный экструдер
         self.gcode.register_command('_T_PREPARE', self.cmd_T_PREPARE)     # Прогреть и подготовить экструдер
         self.gcode.register_command('_T_SET_GCODE_OFFSET', self.cmd_T_SET_GCODE_OFFSET) # Сохранить Z-Offset
         self.gcode.register_command('_T_CHANGE_FILAMENT', self.cmd_T_CHANGE_FILAMENT)     # Сменить филамент
-        self.gcode.register_command('_T_FIND_ANALOG', self.cmd_T_FIND_ANALOG)   # Поиск аналогмичного прутка
+        self.gcode.register_command('_T_FIND_ANALOG', self.cmd_T_FIND_ANALOG)   # Поиск аналогичного прутка
         self.gcode.register_command('_T_TEST_PA', self.cmd_TEST_PA)       # Подбор PA
         self.gcode.register_command('_T_PREPARE_RESTORE', self.cmd_T_PREPARE_RESTORE) # Включение всех перенаправлений для восстановления печати после перезагрузки
         self.gcode.register_command('_T_CALIBRATE_EXTRUDERS', self.cmd_T_CALIBRATE_EXTRUDERS)   # Калибровка экструдеров
@@ -2218,7 +2218,7 @@ class zmod_color:
                     if zslot == int(slot['ID']):
                         zhex = slot['HEX']
                         ztype = slot['Material']
-                        break;
+                        break
             else:
                 gcmd.respond_raw(self._t('no_response', json.dumps(response_data)))
 
@@ -3027,7 +3027,7 @@ class zmod_color:
             f"M140 S{bed_temp:.1f}",
             f"_WAIT_TEMP T=0 EXTRUDER_TEMP=0 BED_TEMP={bed_temp:.1f} FROM=_T_CALIBRATE_EXTRUDER",
             f"M190 S{bed_temp:.1f}",
-            "G4 P20000",
+            "G4 P30000",
             "SET_VELOCITY_LIMIT ACCEL=100",
             "M400",
         ]
@@ -3100,7 +3100,7 @@ class zmod_color:
                     f"_WAIT_TEMP T={t_idx} EXTRUDER_TEMP={wait_temp:.3f} BED_TEMP={bed_temp:.1f} FROM=_T_CALIBRATE_EXTRUDER",
                     "M106 P1 S0",
                     f"M109 T{t_idx} S{wait_temp:.3f}",
-                    "G4 P10000",
+                    "G4 P20000",
                     f"G1 Z{safe_z:.2f} F1200",
                     "M400",
                     "SET_VELOCITY_LIMIT ACCEL=100",
