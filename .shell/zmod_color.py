@@ -3023,6 +3023,7 @@ class zmod_color:
         script = [
             "G28",
             "G90",
+            "BED_MESH_CLEAR",
             "SET_GCODE_OFFSET X=0 Y=0 Z=0 MOVE=0 MOVE_SPEED=600",
             "M400",
             f"_WAIT_TEMP T=0 EXTRUDER_TEMP=0 BED_TEMP={bed_temp:.1f} FROM=_T_CALIBRATE_EXTRUDER",
