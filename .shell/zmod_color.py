@@ -2878,10 +2878,10 @@ class zmod_color:
     CALIB_FEED_APPROACH = 12000
 
     def _call_estop_axis(self, gcmd, axis_name, target_val):
-        estop_mux = self.printer.lookup_object(f"estop {axis_name}", None)
+        estop_mux = self.printer.lookup_object(f"e_stop {axis_name.upper()}", None)
         if estop_mux is None:
             raise gcmd.error(
-                f"Модуль [estop {axis_name}] не найден в конфигурации Klipper!")
+                f"Модуль [e_stop {axis_name.upper()}] не найден в конфигурации Klipper!")
 
         old_offset = estop_mux.position_offset
         try:
