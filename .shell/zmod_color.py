@@ -3024,7 +3024,7 @@ class zmod_color:
             "BED_MESH_CLEAR FROM=_T_CALIBRATE_EXTRUDERS",
             "_SET_GCODE_OFFSET_FAST X=0 Y=0 Z=0 MOVE=0 MOVE_SPEED=600 FROM=_T_CALIBRATE_EXTRUDERS",
             "M400",
-            f"_WAIT_TEMP T=0 EXTRUDER_TEMP=0 BED_TEMP={bed_temp:.1f} DELTA_BED=0.5 FROM=_T_CALIBRATE_EXTRUDER",
+            f"_WAIT_TEMP T=0 EXTRUDER_TEMP=0 BED_TEMP={bed_temp:.1f} DELTA_BED=0.1 FROM=_T_CALIBRATE_EXTRUDER",
             "SET_VELOCITY_LIMIT ACCEL=100",
             "M400",
         ]
@@ -3094,7 +3094,7 @@ class zmod_color:
                     "M400",
                     f"G1 Z{wiper_z:.3f} F600",
                     "M400",
-                    f"_WAIT_TEMP T={t_idx} EXTRUDER_TEMP={wait_temp:.3f} DELTA_T=0.5 BED_TEMP={bed_temp:.1f} DELTA_BED=0.5 FROM=_T_CALIBRATE_EXTRUDER",
+                    f"_WAIT_TEMP T={t_idx} EXTRUDER_TEMP={wait_temp:.3f} DELTA_T=0.5 BED_TEMP={bed_temp:.1f} DELTA_BED=0.1 FROM=_T_CALIBRATE_EXTRUDER",
                     "M106 P1 S0",
                     f"G1 Z{safe_z:.2f} F1200",
                     "M400",
