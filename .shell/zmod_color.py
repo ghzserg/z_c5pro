@@ -2881,7 +2881,7 @@ class zmod_color:
         estop_mux = self.printer.lookup_object(f"e_stop {axis_name.upper()}", None)
         if estop_mux is None:
             raise gcmd.error(
-                f"Модуль [e_stop {axis_name.upper()}] не найден в конфигурации Klipper!")
+                f"[e_stop {axis_name.upper()}] not found")
 
         old_offset = estop_mux.position_offset
         try:
@@ -2916,7 +2916,7 @@ class zmod_color:
     def _reset_gcode_offset(self):
         self.gcode.run_script_from_command("SET_GCODE_OFFSET X=0 Y=0 Z=0 MOVE=0 MOVE_SPEED=600\nM400")
 
-    def _assert_zero_offset(self, gcmd, where):
+    def _assert_zero_offset(self):
         try:
             homing = self.gcode_move.homing_position
             if not isinstance(homing, (list, tuple)):
@@ -2924,9 +2924,6 @@ class zmod_color:
             n = min(len(homing), 3)   # только X, Y, Z
             deltas = [abs(float(homing[i])) for i in range(n)]
             if any(d > 1e-3 for d in deltas):
-                gcmd.respond_info(
-                    f"[CALIB] WARNING ({where}): активен gcode_offset "
-                    f"homing_position={list(homing)[:3]}. Сбрасываю.")
                 self._reset_gcode_offset()
         except (AttributeError, TypeError, ValueError, IndexError):
             pass
@@ -2942,9 +2939,8 @@ class zmod_color:
         self._safe_g1(x=cx, y=cy)
         return self._calculate_circle_center(xp, yp, xm, ym)
 
-    def _two_pass_measure(self, gcmd, nominal_x, nominal_y,
-                          z_p1, z_p2, hover, search):
-        self._assert_zero_offset(gcmd, "two_pass_measure:start")
+    def _two_pass_measure(self, gcmd, nominal_x, nominal_y, z_p1, z_p2, hover, search):
+        self._assert_zero_offset()
 
         # Pass 1
         self._safe_g1(x=nominal_x, y=nominal_y, feed=self.CALIB_FEED_FAST)
@@ -2952,8 +2948,7 @@ class zmod_color:
         hover1 = z1 + hover
         self._safe_g1(z=hover1)
         cx1, cy1 = self._measure_xy_ring(gcmd, nominal_x, nominal_y, search)
-        gcmd.respond_info(
-            f"  Pass1: center=({cx1:.4f}, {cy1:.4f}) Z={z1:.4f}")
+        gcmd.respond_raw(f"// 1: center=({cx1:.4f}, {cy1:.4f}) Z={z1:.4f}")
 
         # Pass 2
         lift_z = z1 + self.CALIB_LIFT_MM
@@ -2963,8 +2958,7 @@ class zmod_color:
         hover2 = z2 + hover
         self._safe_g1(z=hover2)
         cx2, cy2 = self._measure_xy_ring(gcmd, cx1, cy1, search)
-        gcmd.respond_info(
-            f"  Pass2: center=({cx2:.4f}, {cy2:.4f}) Z={z2:.4f}")
+        gcmd.respond_raw(f"// 2: center=({cx2:.4f}, {cy2:.4f}) Z={z2:.4f}")
 
         return cx2, cy2, z2
 
@@ -2985,11 +2979,15 @@ class zmod_color:
                 file.write(new_json_str + "\n/* Printer Extruder Offset Config */")
             return True
         except Exception as e:
-            raise gcmd.error(
-                f"Ошибка при записи результатов в extruder.json: {str(e)}")
+            if self.lang == 'ru':
+                raise gcmd.error(f"Ошибка при записи результатов в extruder.json: {str(e)}")
+            else:
+                raise gcmd.error(f"Error writing results to extruder.json: {str(e)}")
 
     # Калибровка экструдеров
     def cmd_T_CALIBRATE_EXTRUDERS(self, gcmd):
+        gcmd.respond_raw("// action:prompt_end")
+
         if self.lang == 'ru':
             gcmd.respond_info("Запуск автоматической калибровки экструдеров...")
         else:
@@ -3027,13 +3025,14 @@ class zmod_color:
             "SET_GCODE_OFFSET X=0 Y=0 Z=0 MOVE=0 MOVE_SPEED=600",
             "M400",
             f"_WAIT_TEMP T=0 EXTRUDER_TEMP=0 BED_TEMP={bed_temp:.1f} FROM=_T_CALIBRATE_EXTRUDER",
+            f"M190 S{bed_temp:.1f}",
             "SET_VELOCITY_LIMIT ACCEL=100",
             "M400",
         ]
         self.gcode.run_script_from_command("\n".join(script))
 
         # 1. Станция TS
-        gcmd.respond_info("[CALIB] Шаг 1/2: замер станции TS")
+        gcmd.respond_info("[CALIB] TS: ...")
         self._safe_g1(x=station_x, y=station_y, feed=self.CALIB_FEED_FAST)
         self._safe_g1(z=safe_z)
 
@@ -3043,7 +3042,7 @@ class zmod_color:
             z_p1=ts_z_p1, z_p2=ts_z_p2,
             hover=hover, search=search)
 
-        gcmd.respond_info(f"[CALIB] TS final: X={ts_cx:.4f} Y={ts_cy:.4f} Z={ts_z:.4f}")
+        gcmd.respond_info(f"[CALIB] TS: X={ts_cx:.4f} Y={ts_cy:.4f} Z={ts_z:.4f}")
 
         script = [
             "SET_VELOCITY_LIMIT ACCEL=20000",
@@ -3060,7 +3059,7 @@ class zmod_color:
 
         # 2. Экструдеры
         for t_idx in range(self.color_limit):
-            gcmd.respond_info(f"[CALIB] Шаг 2/2: экструдер T{t_idx}")
+            gcmd.respond_info(f"[CALIB] T{t_idx}: ...")
 
             self.gcode.run_script_from_command(f"_T_IN T={t_idx}")
             self._reset_gcode_offset()
@@ -3098,6 +3097,7 @@ class zmod_color:
                     "M400",
                     f"_WAIT_TEMP T={t_idx} EXTRUDER_TEMP={wait_temp:.3f} BED_TEMP={bed_temp:.1f} FROM=_T_CALIBRATE_EXTRUDER",
                     "M106 P1 S0",
+                    f"M109 T{t_idx} S{wait_temp:.3f}",
                     f"G1 Z{safe_z:.2f} F1200",
                     "M400",
                     "SET_VELOCITY_LIMIT ACCEL=100",
@@ -3117,7 +3117,7 @@ class zmod_color:
                 new_offsets[f"t{t_idx}_offset_y"] = t_cy
                 new_offsets[f"t{t_idx}_offset_z"] = t_z
 
-                gcmd.respond_info(f"[CALIB] T{t_idx} final: X={t_cx:.6f} Y={t_cy:.6f} Z={t_z:.6f}")
+                gcmd.respond_info(f"[CALIB] T{t_idx}: X={t_cx:.6f} Y={t_cy:.6f} Z={t_z:.6f}")
 
             finally:
                 script = [
@@ -3140,14 +3140,16 @@ class zmod_color:
         ]
         self.gcode.run_script_from_command("\n".join(script))
 
-        # 4. Запись
         if self._write_to_extruder_json(gcmd, new_offsets):
             if self.lang == 'ru':
-                gcmd.respond_info(
-                    "Калибровка завершена! Значения записаны в extruder.json.")
+                gcmd.respond_info("Калибровка завершена.")
             else:
-                gcmd.respond_info(
-                    "Calibration complete! Values written to extruder.json.")
+                gcmd.respond_info("Calibration complete.")
+
+            gcmd.respond_raw(f"// T0: X={new_offsets['t0_offset_x']:.6f} Y={new_offsets['t0_offset_y']:.6f} Z={new_offsets['t0_offset_z']:.6f}")
+            gcmd.respond_raw(f"// T1: X={new_offsets['t1_offset_x']:.6f} Y={new_offsets['t1_offset_y']:.6f} Z={new_offsets['t1_offset_z']:.6f}")
+            gcmd.respond_raw(f"// T2: X={new_offsets['t2_offset_x']:.6f} Y={new_offsets['t2_offset_y']:.6f} Z={new_offsets['t2_offset_z']:.6f}")
+            gcmd.respond_raw(f"// T3: X={new_offsets['t3_offset_x']:.6f} Y={new_offsets['t3_offset_y']:.6f} Z={new_offsets['t3_offset_z']:.6f}")
 
 def load_config(config):
     return zmod_color(config)

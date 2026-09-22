@@ -544,6 +544,15 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('flui
             "categoryId": "244d667b-c410-4e01-9bf1-e8e0b9deabe2",
             "color": "",
             "disabledWhilePrinting": true,
+            "name": "calibrate_extruders",
+            "order": 8,
+            "visible": true
+        },
+        {
+            "alias": "",
+            "categoryId": "244d667b-c410-4e01-9bf1-e8e0b9deabe2",
+            "color": "",
+            "disabledWhilePrinting": true,
             "name": "belts_shaper_calibration",
             "order": 6,
             "visible": true
@@ -953,6 +962,14 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('main
             {
                "color" : "group",
                "name" : "ZSHAPER",
+               "pos" : 5,
+               "showInPause" : false,
+               "showInPrinting" : false,
+               "showInStandby" : true
+            },
+            {
+               "color" : "group",
+               "name" : "CALIBRATE_EXTRUDERS",
                "pos" : 6,
                "showInPause" : false,
                "showInPrinting" : false,
