@@ -2005,6 +2005,17 @@ class zmod_color:
 
             self.gcode.run_script_from_command(f"SAVE_VARIABLE VARIABLE=print_leveling VALUE={leveling}")
             self.gcode.run_script_from_command(f"SAVE_VARIABLE VARIABLE=print_autopa VALUE={autopa}")
+
+            try:
+                with open(FILE_CONFIG, 'w', encoding='utf-8') as file:
+                    json.dump(tools, file, indent=2)
+            except Exception as e:
+                if self.lang == 'ru':
+                    msg = f"Ошибка перезаписи FILE_CONFIG: {str(e)}"
+                else:
+                    msg = f"Error rewriting FILE_CONFIG: {str(e)}"
+                raise gcmd.error(msg)
+
             if self.display:
                 if any(file_color[0] > 3 for file_color in self.file_colors):
                     raise gcmd.error(self._t('error_native_screen_tool_count', len(self.file_colors))) # We should never actually get here with >4 colors. But this check is here just in case.
@@ -2025,16 +2036,6 @@ class zmod_color:
                 else:
                     gcmd.respond_raw(self._t('printing_error', response_data2))
             else:
-                try:
-                    with open(FILE_CONFIG, 'w', encoding='utf-8') as file:
-                        json.dump(tools, file, indent=2)
-                except Exception as e:
-                    if self.lang == 'ru':
-                        msg = f"Ошибка перезаписи FILE_CONFIG: {str(e)}"
-                    else:
-                        msg = f"Error rewriting FILE_CONFIG: {str(e)}"
-                    raise gcmd.error(msg)
-
                 file_channel, bed_temp = self.find_t_code(fname)
                 t_start = tools[file_channel] - 1
 
@@ -2699,7 +2700,7 @@ class zmod_color:
             script += [
                 "SDCARD_SET_NEED_CHECK_EX CHECK=1",
                 f"SDCARD_SET_CHANNEL CHANNEL={t_new}",
-                f"_A_CHANGE_FILAMENT T={t_new} HEAT=1"
+                f"_A_CHANGE_FILAMENT T={t_new} RESTORE_TEMP=1 RESTORE_POSITION=1"
             ]
             self.gcode.run_script_from_command("\n".join(script))
         else:
