@@ -1081,7 +1081,7 @@ class zmod_color:
     # Статус для Moonraker (objects/status): слоты в том же формате, что у
     # z_ad5x (ID/Material/Color/HEX/hasFilament), чтобы клиенты использовали
     # один парсер. До klippy:ready COLOR_MAPPING и fd_sensors ещё не
-    # созданы — слотов нет.
+    # созданы, поэтому слотов нет.
     def get_status(self, eventtime):
         status = {
             'active_tool_id': self.active_tool_id,
@@ -1094,16 +1094,19 @@ class zmod_color:
         }
         if not hasattr(self, 'COLOR_MAPPING'):
             return status
-        color_mapping = self.COLOR_MAPPING
-        for i, (mat_name, hex_color, has_filament) in enumerate(self._slot_states()):
-            hex_upper = hex_color.upper()
-            status['slots'].append({
-                'ID': str(i + 1),
-                'Material': mat_name.upper(),
-                'Color': color_mapping.get(hex_color.lower(), hex_upper),
-                'HEX': hex_upper,
-                'hasFilament': has_filament
-            })
+        try:
+            color_mapping = self.COLOR_MAPPING
+            for i, (mat_name, hex_color, has_filament) in enumerate(self._slot_states()):
+                hex_upper = hex_color.upper()
+                status['slots'].append({
+                    'ID': str(i + 1),
+                    'Material': mat_name.upper(),
+                    'Color': color_mapping.get(hex_color.lower(), hex_upper),
+                    'HEX': hex_upper,
+                    'hasFilament': has_filament
+                })
+        except Exception:
+            status['slots'] = []
         return status
 
     def get_extruder_sensor(self):
