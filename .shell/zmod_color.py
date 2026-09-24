@@ -726,7 +726,6 @@ class zmod_color:
         self.top_obj = self.printer.lookup_object("gcode_button topDoor", None)
         self.toolhead = self.printer.lookup_object('toolhead')
         self.save_variables = self.printer.lookup_object('save_variables', None)
-        self.save_variables = {} if self.save_variables == None else self.save_variables.allVariables
         self.pa_obj = self.printer.lookup_object('pa_adjust', None)
         self.macro_obj = self.printer.lookup_object('gcode_macro _TEST_POINT', None)
 
@@ -1600,6 +1599,7 @@ class zmod_color:
 
     def get_used_colors(self, gcmd):
         # Returns list of tuples. (tool ID, color, material)
+        self.save_variables = {} if self.save_variables == None else self.save_variables.allVariables
         scan_files_setting = self.save_variables.get('scan_file_colors', 0)
 
         if scan_files_setting == 0:
@@ -1771,6 +1771,7 @@ class zmod_color:
 
 
     def cmd_SET_ZCOLOR(self, gcmd):
+        self.save_variables = {} if self.save_variables == None else self.save_variables.allVariables
         one_based_indexes = (self.save_variables.get('color_menu_1_based', 0) != 0)
 
         silent = gcmd.get_int('SILENT', 0)
@@ -2082,7 +2083,6 @@ class zmod_color:
                     self.set_autopa(gcmd)
 
                 script = [
-
                     f"_T_PREPARE T={t_start} BED_TEMP={bed_temp:.1f} FULL=0",
                     f"SDCARD_PRINT_FILE FILENAME=\"{fname}\""
                 ]
@@ -2124,6 +2124,7 @@ class zmod_color:
         return channel_num, bed_temp
 
     def cmd_CHANGE_T_ZCOLOR(self, gcmd):
+        self.save_variables = {} if self.save_variables == None else self.save_variables.allVariables
         one_based_indexes = (self.save_variables.get('color_menu_1_based', 0) != 0)
 
         gcmd.respond_raw("// action:prompt_end")
