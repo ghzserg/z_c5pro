@@ -1090,12 +1090,16 @@ class zmod_color:
             'color_limit': self.color_limit,
             'valid_types': list(self.valid_types),
             'hidden_types': list(self.hide_filament_types),
-            'slots': []
+            'slots': [],
+            'palette': []
         }
         if not hasattr(self, 'COLOR_MAPPING'):
             return status
         try:
             color_mapping = self.COLOR_MAPPING
+            # Палитра в порядке индексов filament.json: цвет вне палитры
+            # сохраняется как индекс 0, поэтому клиенту нужен список.
+            status['palette'] = [h.upper() for h in color_mapping.keys()]
             for i, (mat_name, hex_color, has_filament) in enumerate(self._slot_states()):
                 hex_upper = hex_color.upper()
                 status['slots'].append({
@@ -1107,6 +1111,7 @@ class zmod_color:
                 })
         except Exception:
             status['slots'] = []
+            status['palette'] = []
         return status
 
     def get_extruder_sensor(self):
