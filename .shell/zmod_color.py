@@ -1599,8 +1599,8 @@ class zmod_color:
 
     def get_used_colors(self, gcmd):
         # Returns list of tuples. (tool ID, color, material)
-        self.save_variables = {} if self.save_variables == None else self.save_variables.allVariables
-        scan_files_setting = self.save_variables.get('scan_file_colors', 0)
+        save_variables = {} if self.save_variables == None else self.save_variables.allVariables
+        scan_files_setting = save_variables.get('scan_file_colors', 0)
 
         if scan_files_setting == 0:
             tool_count = self.get_allowed_tool_count(gcmd)
@@ -1771,8 +1771,8 @@ class zmod_color:
 
 
     def cmd_SET_ZCOLOR(self, gcmd):
-        self.save_variables = {} if self.save_variables == None else self.save_variables.allVariables
-        one_based_indexes = (self.save_variables.get('color_menu_1_based', 0) != 0)
+        save_variables = {} if self.save_variables == None else self.save_variables.allVariables
+        one_based_indexes = (save_variables.get('color_menu_1_based', 0) != 0)
 
         silent = gcmd.get_int('SILENT', 0)
 
@@ -1792,7 +1792,7 @@ class zmod_color:
             self.file_colors = self.get_used_colors(gcmd)
             if self.display and any(file_color[0] > 3 for file_color in self.file_colors):
                 raise gcmd.error(self._t('error_native_screen_tool_count', len(self.file_colors)))
-            auto_assign_setting = self.save_variables.get('auto_assign_colors', 0)
+            auto_assign_setting = save_variables.get('auto_assign_colors', 0)
         else:
             auto_assign_setting = 0
 
@@ -2124,8 +2124,8 @@ class zmod_color:
         return channel_num, bed_temp
 
     def cmd_CHANGE_T_ZCOLOR(self, gcmd):
-        self.save_variables = {} if self.save_variables == None else self.save_variables.allVariables
-        one_based_indexes = (self.save_variables.get('color_menu_1_based', 0) != 0)
+        save_variables = {} if self.save_variables == None else self.save_variables.allVariables
+        one_based_indexes = (save_variables.get('color_menu_1_based', 0) != 0)
 
         gcmd.respond_raw("// action:prompt_end")
         fname = gcmd.get('FILENAME', '')
