@@ -975,20 +975,58 @@ class zmod_color:
             }
         }
 
-        cmd_time = self.printer.get_reactor().monotonic()
-
-        try:
-            with open(FFCONFIG + 'filament.json', 'r', encoding='utf-8') as file:
-                raw = file.read()
-                clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
-                filament_cfg = json.loads(clean)
-        except Exception:
-            filament_cfg = {}
-
         response_data["detail"]["hasMatlStation"] = True
+
+        for i, (mat_name, hex_color, has_filament) in enumerate(self._slot_states()):
+            slot = {
+                "slotId": str(i + 1),
+                "materialName": mat_name,
+                "materialColor": "#" + hex_color.upper(),
+                "hasFilament": has_filament
+            }
+            response_data["detail"]["matlStationInfo"]["slotInfos"].append(slot)
+
+        if response_data["detail"]["matlStationInfo"]["slotInfos"]:
+            first_slot = response_data["detail"]["matlStationInfo"]["slotInfos"][0]
+            response_data["detail"]["indepMatlInfo"] = {
+                "materialName": first_slot["materialName"],
+                "materialColor": first_slot["materialColor"]
+            }
+
+        return 200,response_data
+
+    # Кэш filament.json: перечитываем только при изменении mtime, чтобы
+    # подписка на статус не парсила файл каждые 0.25с.
+    def _read_filament_json_cached(self):
+        path = FFCONFIG + 'filament.json'
+        try:
+            mtime = os.stat(path).st_mtime
+        except OSError:
+            return {}
+        if getattr(self, '_filament_json_mtime', None) != mtime:
+            try:
+                with open(path, 'r', encoding='utf-8') as file:
+                    raw = file.read()
+                    clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
+                    parsed = json.loads(clean)
+            except Exception:
+                parsed = {}
+            if not isinstance(parsed, dict):
+                parsed = {}
+            self._filament_json = parsed
+            self._filament_json_mtime = mtime
+        return self._filament_json
+
+    # Единый расчёт слотов для get_printer_data_detail() и get_status():
+    # (тип, HEX-ключ без '#', наличие прутка) для каждой головы.
+    def _slot_states(self):
+        cmd_time = self.printer.get_reactor().monotonic()
+        filament_cfg = self._read_filament_json_cached()
         # Динамическое получение упорядоченного списка HEX-ключей из self.COLOR_MAPPING
         available_hex_keys = list(self.COLOR_MAPPING.keys())
+        fd_sensors = getattr(self, 'fd_sensors', [])
 
+        states = []
         for i in range(self.color_limit):
             prefix = f"ex{i}_"
 
@@ -1005,34 +1043,20 @@ class zmod_color:
             # Определение HEX-кода цвета по индексу из файла локализации
             color_idx = filament_cfg.get(prefix + "filament_color", 0)
             if isinstance(color_idx, int) and 0 <= color_idx < len(available_hex_keys):
-                hex_color = "#" + available_hex_keys[color_idx].upper()
+                hex_color = available_hex_keys[color_idx]
             else:
-                hex_color = "#FFFFFF"
+                hex_color = "FFFFFF"
 
             # Получение статуса из filament_switch_sensor fd_exX
             has_filament = True
-            if i < len(self.fd_sensors) and self.fd_sensors[i] is not None:
+            if i < len(fd_sensors) and fd_sensors[i] is not None:
                 try:
-                    has_filament = bool(self.fd_sensors[i].get_status(cmd_time).get('filament_detected', False))
+                    has_filament = bool(fd_sensors[i].get_status(cmd_time).get('filament_detected', False))
                 except Exception:
                     pass
 
-            slot = {
-                "slotId": str(i + 1),
-                "materialName": mat_name,
-                "materialColor": hex_color,
-                "hasFilament": has_filament
-            }
-            response_data["detail"]["matlStationInfo"]["slotInfos"].append(slot)
-
-        if response_data["detail"]["matlStationInfo"]["slotInfos"]:
-            first_slot = response_data["detail"]["matlStationInfo"]["slotInfos"][0]
-            response_data["detail"]["indepMatlInfo"] = {
-                "materialName": first_slot["materialName"],
-                "materialColor": first_slot["materialColor"]
-            }
-
-        return 200,response_data
+            states.append((mat_name, hex_color, has_filament))
+        return states
 
     def _t(self, key, *args):
         return TRANSLATIONS[self.lang][key].format(*args)
@@ -1054,15 +1078,33 @@ class zmod_color:
                 })
         return slots_info
 
+    # Статус для Moonraker (objects/status): слоты в том же формате, что у
+    # z_ad5x (ID/Material/Color/HEX/hasFilament), чтобы клиенты использовали
+    # один парсер. До klippy:ready COLOR_MAPPING и fd_sensors ещё не
+    # созданы — слотов нет.
     def get_status(self, eventtime):
-        return {
+        status = {
             'active_tool_id': self.active_tool_id,
             'total_tools': self.color_limit,
             'display': self.display,
             'color_limit': self.color_limit,
             'valid_types': list(self.valid_types),
-            'hidden_types': list(self.hide_filament_types)
+            'hidden_types': list(self.hide_filament_types),
+            'slots': []
         }
+        if not hasattr(self, 'COLOR_MAPPING'):
+            return status
+        color_mapping = self.COLOR_MAPPING
+        for i, (mat_name, hex_color, has_filament) in enumerate(self._slot_states()):
+            hex_upper = hex_color.upper()
+            status['slots'].append({
+                'ID': str(i + 1),
+                'Material': mat_name.upper(),
+                'Color': color_mapping.get(hex_color.lower(), hex_upper),
+                'HEX': hex_upper,
+                'hasFilament': has_filament
+            })
+        return status
 
     def get_extruder_sensor(self):
         return self._get_active_extruder(None) >= 0
