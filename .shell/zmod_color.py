@@ -1084,7 +1084,7 @@ class zmod_color:
     # созданы, поэтому слотов нет.
     def get_status(self, eventtime):
         status = {
-            'active_tool_id': self.active_tool_id,
+            'active_tool_id': self._live_active_tool_id(),
             'total_tools': self.color_limit,
             'display': self.display,
             'color_limit': self.color_limit,
@@ -1113,6 +1113,17 @@ class zmod_color:
             status['slots'] = []
             status['palette'] = []
         return status
+
+    # active_tool_id пересчитывается только внутри команд (_T_IN, GET_ZCOLOR...),
+    # поэтому после перезагрузки он остаётся -2. Для статуса читаем кнопки
+    # напрямую. До klippy:ready кнопок ещё нет, отдаём сохранённое значение.
+    def _live_active_tool_id(self):
+        if getattr(self, 'home_objs', None) is None:
+            return self.active_tool_id
+        try:
+            return self._get_active_extruder(None)
+        except Exception:
+            return self.active_tool_id
 
     def get_extruder_sensor(self):
         return self._get_active_extruder(None) >= 0
