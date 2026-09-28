@@ -2491,6 +2491,7 @@ class zmod_color:
             f"  temp (auto purge): {slot_config.get('temp')}°C\n"
             f"  temp_wait:         {slot_config.get('temp_wait')}°C\n"
             f"  drop_length:       {slot_config.get('filament_drop_length')} mm\n"
+            f"  full_length:       {slot_config.get('filament_full_length')} mm\n"
             f"  trash_position:    X={slot_config.get('trash_x')} Y={slot_config.get('trash_y')} Z={slot_config.get('trash_z')}"
         )
 
@@ -2503,6 +2504,11 @@ class zmod_color:
         wiper_z = slot_config.get('wiper_z')# - current_z_offset
 
         script = [
+            "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e0 VALUE=0",
+            "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e1 VALUE=0",
+            "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e2 VALUE=0",
+            "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e3 VALUE=0",
+            f"SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=len VALUE={slot_config.get('filament_full_length'):.3f}"
             f"M140 S{bed_temp:.1f}",                            # Греем стол
             f"M104 S{slot_config.get('temp'):.3f} T{t}",        # Греем сопло
             f"_T_IN T={t}",                                     # Берем сопло
@@ -2747,6 +2753,10 @@ class zmod_color:
                 raise gcmd.error(msg)
 
             script = [
+                "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e0 VALUE=0",
+                "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e1 VALUE=0",
+                "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e2 VALUE=0",
+                "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e3 VALUE=0",
                 "SDCARD_NO_FILAMENT_CHECK_EX CHECK=0",
                 "SDCARD_SET_NEED_CHECK_EX CHECK=0",
                 "SDCARD_SET_GCODE_EX_USED_BASE INDEX=0 EXTRUDER=T0",
