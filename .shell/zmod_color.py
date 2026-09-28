@@ -2780,10 +2780,10 @@ class zmod_color:
             self.gcode.run_script_from_command("\n".join(script))
         else:
             if self.lang == 'ru':
-                gcmd.respond_raw(f"// аналог для T{t_param} не найден")
+                gcmd.respond_raw(f"// Аналог для T{t_param} не найден")
             else:
-                gcmd.respond_raw(f"// analog for T{t_param} not found")
-            self.gcode.run_script_from_command("PAUSE")
+                gcmd.respond_raw(f"// Analog for T{t_param} not found")
+            self.gcode.run_script_from_command("_PRINT_PAUSE_MOTION T={t_param}")
 
     def set_autopa(self, gcmd):
         pa0, pa1, pa2, pa3 = self.physical_pa
