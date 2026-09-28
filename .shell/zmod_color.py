@@ -3056,14 +3056,25 @@ class zmod_color:
         else:
             gcmd.respond_info("Starting automatic extruder calibration...")
 
+        new_offsets = {}
         try:
             with open(FFCONFIG + 'extruder.json', 'r', encoding='utf-8') as file:
                 clean_content = re.sub(r'/\*.*?\*/', '', file.read(), flags=re.DOTALL)
                 ext_cfg = json.loads(clean_content)
 
+                for i in range(self.color_limit):
+                    for axis in ['x', 'y', 'z']:
+                        key = f"t{i}_offset_{axis}"
+                        if key in ext_cfg:
+                            new_offsets[key] = float(ext_cfg[key])
+
             default_station_x = float(ext_cfg.get("x_station_pos", 28.500))
             default_station_y = float(ext_cfg.get("y_station_pos", 214.500))
         except Exception:
+            for i in range(self.color_limit):
+                for axis in ['x', 'y', 'z']:
+                    new_offsets[f"t{i}_offset_{axis}"] = 0.0
+
             default_station_x = 28.500
             default_station_y = 214.500
 
@@ -3079,6 +3090,13 @@ class zmod_color:
         station_x   = gcmd.get_float('STATION_X',  default_station_x)
         station_y   = gcmd.get_float('STATION_Y',  default_station_y)
         extruder_x  = gcmd.get_float('EXTRUDER_X', 16.000)
+
+        t_active = [
+            gcmd.get_int('T0', 1),
+            gcmd.get_int('T1', 1),
+            gcmd.get_int('T2', 1),
+            gcmd.get_int('T3', 1)
+        ]
 
         # 0. Снять инструмент, HOME, обнулить offset
         script = [
@@ -3113,14 +3131,19 @@ class zmod_color:
         ]
         self.gcode.run_script_from_command("\n".join(script))
 
-        new_offsets = {
-            "x_station_pos": ts_cx,
-            "y_station_pos": ts_cy,
-            "z_station_pos": ts_z,
-        }
+        new_offsets["x_station_pos"] = ts_cx
+        new_offsets["y_station_pos"] = ts_cy
+        new_offsets["z_station_pos"] = ts_z
 
         # 2. Экструдеры
         for t_idx in range(self.color_limit):
+            if t_idx < len(t_active) and t_active[t_idx] == 0:
+                if self.lang == 'ru':
+                    gcmd.respond_info(f"[CALIB] T{t_idx}: Пропущен (параметр T{t_idx}=0)")
+                else:
+                    gcmd.respond_info(f"[CALIB] T{t_idx}: Skipped (parameter T{t_idx}=0)")
+                continue
+
             gcmd.respond_info(f"[CALIB] T{t_idx}: ...")
 
             self.gcode.run_script_from_command(f"_T_IN T={t_idx}")
