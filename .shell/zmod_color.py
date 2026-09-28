@@ -17,6 +17,7 @@ DEFAULT_FILAMENT_SETTINGS = {
     "temp_wait": 120,                   # Температура простоя
     "filament_tube_length": 295,        # Длина загрузки
     "filament_drop_length": 50,         # Длина продувки перед печатью
+    "filament_full_length": 690.0,      # Длина трукбки, столько будет печать после окончания филамента
     "trash_x": 275.0,                   # Координата корзины
     "trash_y": 254.0,
     "trash_z": 10.0,
