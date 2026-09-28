@@ -1830,7 +1830,6 @@ class zmod_color:
                                 break
         return result_flags
 
-
     def cmd_SET_ZCOLOR(self, gcmd):
         save_variables = {} if self.save_variables == None else self.save_variables.allVariables
         one_based_indexes = (save_variables.get('color_menu_1_based', 0) != 0)
@@ -1897,6 +1896,9 @@ class zmod_color:
             for i, tool in enumerate(tools):
                 if tool < 1 or tool > self.color_limit:
                     raise gcmd.error(self._t('error_tool', i, tool))
+
+            if silent == 2 and auto_assign > 1 and ((auto_assign & ~AUTO_ASSIGN_ANY_SUCCESS) & (auto_result & ~AUTO_ASSIGN_ANY_SUCCESS)) != 0:
+                silent = 0
 
             if silent == 0:
                 current_tools_param_text = ""
