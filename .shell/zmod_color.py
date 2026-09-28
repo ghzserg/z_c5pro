@@ -1893,13 +1893,12 @@ class zmod_color:
             else:
                 tools = [1] * allowed_tool_count
                 auto_result = self.get_auto_tool_assignments(gcmd, tools, result, auto_selection_output_text, one_based_indexes)
+                if silent == 2 and ((auto_assign & ~AUTO_ASSIGN_ANY_SUCCESS) & (auto_result & ~AUTO_ASSIGN_ANY_SUCCESS)) != 0:
+                    silent = 0
 
             for i, tool in enumerate(tools):
                 if tool < 1 or tool > self.color_limit:
                     raise gcmd.error(self._t('error_tool', i, tool))
-
-            if silent == 2 and auto_assign > 1 and ((auto_assign & ~AUTO_ASSIGN_ANY_SUCCESS) & (auto_result & ~AUTO_ASSIGN_ANY_SUCCESS)) != 0:
-                silent = 0
 
             if silent == 0:
                 current_tools_param_text = ""
