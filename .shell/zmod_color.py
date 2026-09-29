@@ -2661,6 +2661,14 @@ class zmod_color:
         if t_param is None or t_param < 0 or t_param > 3:
             raise gcmd.error("Error: T parameter is required and must be between 0 and 3")
 
+        script = [
+            "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e0 VALUE=0",
+            "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e1 VALUE=0",
+            "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e2 VALUE=0",
+            "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e3 VALUE=0"
+        ]
+        self.gcode.run_script_from_command("\n".join(script))
+
         if self.lang == 'ru':
             gcmd.respond_raw(f"// Ищу аналог T{t_param}")
         else:
@@ -2732,9 +2740,9 @@ class zmod_color:
 
         if t_new is not None:
             if self.lang == 'ru':
-                gcmd.respond_raw(f"// найден аналог T{t_param} -> T{t_new}")
+                gcmd.respond_raw(f"// Найден аналог T{t_param} -> T{t_new}")
             else:
-                gcmd.respond_raw(f"// found analog T{t_param} -> T{t_new}")
+                gcmd.respond_raw(f"// Found analog T{t_param} -> T{t_new}")
 
             # Заменяем в массиве инструментов старый экструдер на новый
             # Меняем значение во всех строках/элементах, где оно ссылалось на старую голову
@@ -2753,10 +2761,6 @@ class zmod_color:
                 raise gcmd.error(msg)
 
             script = [
-                "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e0 VALUE=0",
-                "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e1 VALUE=0",
-                "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e2 VALUE=0",
-                "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e3 VALUE=0",
                 "SDCARD_NO_FILAMENT_CHECK_EX CHECK=0",
                 "SDCARD_SET_NEED_CHECK_EX CHECK=0",
                 "SDCARD_SET_GCODE_EX_USED_BASE INDEX=0 EXTRUDER=T0",
