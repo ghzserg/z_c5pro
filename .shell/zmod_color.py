@@ -2665,7 +2665,8 @@ class zmod_color:
             "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e0 VALUE=0",
             "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e1 VALUE=0",
             "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e2 VALUE=0",
-            "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e3 VALUE=0"
+            "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e3 VALUE=0",
+            "UPDATE_DELAYED_GCODE ID=_WAIT_E_CHECK DURATION=0"
         ]
         self.gcode.run_script_from_command("\n".join(script))
 
