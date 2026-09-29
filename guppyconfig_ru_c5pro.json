@@ -10,19 +10,19 @@
     "C5Pro": {
       "fans": [
         {
-          "display_name": "Камера",
+          "display_name": "Вытяжка",
           "id": "fan_generic chamber_fan"
         },
         {
-          "display_name": "Нагрев Кам.",
+          "display_name": "Нагрев",
           "id": "fan_generic chamber_heat_fan"
         },
         {
-          "display_name": "Циркул. Кам.",
+          "display_name": "Циркуляция",
           "id": "fan_generic chamber_loop_fan"
         },
         {
-          "display_name": "Охлажд. Кам.",
+          "display_name": "Охлаждение",
           "id": "fan_generic chamber_cool_fan"
         },
         {
