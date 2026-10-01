@@ -2523,6 +2523,7 @@ class zmod_color:
             "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e2 VALUE=0",
             "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e3 VALUE=0",
             f"SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=len VALUE={slot_config.get('filament_full_length'):.3f}",
+            "UPDATE_DELAYED_GCODE ID=_WAIT_E_CHECK DURATION=0",
             f"M140 S{bed_temp:.1f}",                            # Греем стол
             f"M104 S{slot_config.get('temp'):.3f} T{t}",        # Греем сопло
             f"_T_IN T={t}",                                     # Берем сопло
