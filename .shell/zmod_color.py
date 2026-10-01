@@ -685,6 +685,7 @@ class zmod_color:
         self.gcode.register_command('_T_TEST_PA', self.cmd_TEST_PA)       # Подбор PA
         self.gcode.register_command('_T_PREPARE_RESTORE', self.cmd_T_PREPARE_RESTORE) # Включение всех перенаправлений для восстановления печати после перезагрузки
         self.gcode.register_command('_T_CALIBRATE_EXTRUDERS', self.cmd_T_CALIBRATE_EXTRUDERS)   # Калибровка экструдеров
+        self.gcode.register_command('_T_GOTO_TRASH', self.cmd_T_GOTO_TRASH)   # Перейти в корзину
 
         self.printer.register_event_handler("klippy:ready", self._handle_ready)
 
@@ -2409,6 +2410,20 @@ class zmod_color:
             gcmd.respond_raw(f"// action:prompt_footer_button {self._t('cancel')}|RESPOND TYPE=command MSG=action:prompt_end")
             gcmd.respond_raw("// action:prompt_show")
 
+    # Идем в корзину
+    def cmd_T_GOTO_TRASH(self, gcmd):
+        active_t = self._get_active_extruder(None)
+        if active_t < 0:
+            active_t = 0
+        t_config = self.get_filament_config_t(active_t)
+        script = [
+            "G1 X250 F12000",
+            f"G1 Y{t_config.get('trash_y'):.3f} F24000",
+            f"G1 X{t_config.get('trash_x'):.3f} F2400",
+            "M400"
+        ]
+        self.gcode.run_script_from_command("\n".join(script))
+
     # Загрузка выгрузка филамента
     def cmd_T_IN_ZCOLOR(self, gcmd):
         gcmd.respond_raw("// action:prompt_end")
@@ -2442,7 +2457,6 @@ class zmod_color:
             f"G1 X{slot_config.get('trash_x'):.3f} F2400",
             "M400"
         ]
-
         self.gcode.run_script_from_command("\n".join(script))
 
         if napr == 1: # Загрузить
