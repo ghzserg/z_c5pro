@@ -2307,15 +2307,14 @@ class zmod_color:
             f"CHANGE_ZCOLOR SLOT={zslot} HEX={zhex}|primary"
         )
 
-        if hide == 0:
-            gcmd.respond_raw(
-                f"// action:prompt_button {self._t('grab')}|"
-                f"_T_IN_ZCOLOR SLOT={zslot} NAPR=0|primary"
-            )
-            gcmd.respond_raw(
-                f"// action:prompt_button {self._t('load')}|"
-                f"_T_IN_ZCOLOR SLOT={zslot} NAPR=1|primary"
-            )
+        gcmd.respond_raw(
+            f"// action:prompt_button {self._t('grab')}|"
+            f"_T_IN_ZCOLOR SLOT={zslot} NAPR=0|primary"
+        )
+        gcmd.respond_raw(
+            f"// action:prompt_button {self._t('load')}|"
+            f"_T_IN_ZCOLOR SLOT={zslot} NAPR=1|primary"
+        )
         gcmd.respond_raw("// action:prompt_button_group_end")
 
         if hide == 0:
