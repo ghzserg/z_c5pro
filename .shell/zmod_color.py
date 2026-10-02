@@ -2380,7 +2380,7 @@ class zmod_color:
                 color_name = color_name.replace('_', '', 1) if color_name.startswith('_') else '_'
                 gcmd.respond_raw(
                     f"// action:prompt_button {color_name} |"
-                    f"CHANGE_ZCOLOR SLOT={zslot} TYPE={ztype} HEX={hex_code}|primary|{hex_code}"
+                    f"CHANGE_ZCOLOR SLOT={zslot} TYPE={ztype} HEX={hex_code} HIDE={hide}|primary|{hex_code}"
                 )
                 counter += 1
                 if counter % 8 == 0 and counter < total_colors:
@@ -2403,7 +2403,7 @@ class zmod_color:
             for material in display_types[:-1]:  # Исключаем '?'
                 gcmd.respond_raw(
                     f"// action:prompt_button {material}|"
-                    f"CHANGE_ZCOLOR SLOT={zslot} TYPE={material} HEX={zhex}|primary|{zhex}"
+                    f"CHANGE_ZCOLOR SLOT={zslot} TYPE={material} HEX={zhex} HIDE={hide}|primary|{zhex}"
                 )
                 counter += 1
                 if counter % 4 == 0 and counter < total_materials:
