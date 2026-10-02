@@ -2359,7 +2359,7 @@ class zmod_color:
                 if hide == 0:
                     self.cmd_GET_ZCOLOR(gcmd)
                 else:
-                    self.gcode.run_script_from_command("RUN_ZCOLOR SLOT={zslot} HIDE=1")
+                    self.gcode.run_script_from_command(f"RUN_ZCOLOR SLOT={zslot} HIDE=1")
                 gcmd.respond_raw(self._t('config_success'))
             else:
                 gcmd.respond_raw(self._t('config_error', json.dumps(response_data)))
@@ -2493,7 +2493,7 @@ class zmod_color:
 
         if nocolor == 0:
             if hide == 1:
-                self.gcode.run_script_from_command("RUN_ZCOLOR SLOT={zslot} HIDE=1")
+                self.gcode.run_script_from_command(f"RUN_ZCOLOR SLOT={zslot} HIDE=1")
             else:
                 self.gcode.run_script_from_command("COLOR")
 
