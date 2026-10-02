@@ -2300,20 +2300,20 @@ class zmod_color:
         gcmd.respond_raw("// action:prompt_button_group_start")
         gcmd.respond_raw(
             f"// action:prompt_button {self._t('change_color')}|"
-            f"CHANGE_ZCOLOR SLOT={zslot} TYPE={ztype}|primary|{zhex}"
+            f"CHANGE_ZCOLOR SLOT={zslot} TYPE={ztype} HIDE={hide}|primary|{zhex}"
         )
         gcmd.respond_raw(
             f"// action:prompt_button {self._t('change_type')}|"
-            f"CHANGE_ZCOLOR SLOT={zslot} HEX={zhex}|primary"
+            f"CHANGE_ZCOLOR SLOT={zslot} HEX={zhex} HIDE={hide}|primary"
         )
 
         gcmd.respond_raw(
             f"// action:prompt_button {self._t('grab')}|"
-            f"_T_IN_ZCOLOR SLOT={zslot} NAPR=0|primary"
+            f"_T_IN_ZCOLOR SLOT={zslot} NAPR=0 HIDE={hide}|primary"
         )
         gcmd.respond_raw(
             f"// action:prompt_button {self._t('load')}|"
-            f"_T_IN_ZCOLOR SLOT={zslot} NAPR=1|primary"
+            f"_T_IN_ZCOLOR SLOT={zslot} NAPR=1 HIDE={hide}|primary"
         )
         gcmd.respond_raw("// action:prompt_button_group_end")
 
@@ -2325,6 +2325,7 @@ class zmod_color:
 
     def cmd_CHANGE_ZCOLOR(self, gcmd):
         gcmd.respond_raw("// action:prompt_end")
+        hide = gcmd.get_int('HIDE', 0)
         zslot = gcmd.get_int('SLOT', 0)
         if zslot < 0 or zslot > self.color_limit:
             raise gcmd.error(self._t('error_slot'))
@@ -2355,7 +2356,10 @@ class zmod_color:
             else:
                 status_code, response_data = self.set_printer_data_detail(zslot, ztype, f"#{zhex}")
             if status_code == 200:
-                self.cmd_GET_ZCOLOR(gcmd)
+                if hide == 0:
+                    self.cmd_GET_ZCOLOR(gcmd)
+                else:
+                    self.gcode.run_script_from_command("RUN_ZCOLOR SLOT={zslot} HIDE=1")
                 gcmd.respond_raw(self._t('config_success'))
             else:
                 gcmd.respond_raw(self._t('config_error', json.dumps(response_data)))
@@ -2427,6 +2431,7 @@ class zmod_color:
     def cmd_T_IN_ZCOLOR(self, gcmd):
         gcmd.respond_raw("// action:prompt_end")
         nocolor = gcmd.get_int('NOCOLOR', 0)
+        hide = gcmd.get_int('HIDE', 0)
         zslot = gcmd.get_int('SLOT', 0)
         if zslot < 0 or zslot > self.color_limit:
             raise gcmd.error(self._t('error_slot'))
@@ -2487,7 +2492,10 @@ class zmod_color:
             self.gcode.run_script_from_command("G91")
 
         if nocolor == 0:
-            self.gcode.run_script_from_command("COLOR")
+            if hide == 1:
+                self.gcode.run_script_from_command("RUN_ZCOLOR SLOT={zslot} HIDE=1")
+            else:
+                self.gcode.run_script_from_command("COLOR")
 
     # Подготовка экструдера
     def cmd_T_PREPARE(self, gcmd):
