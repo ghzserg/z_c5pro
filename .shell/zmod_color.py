@@ -1153,18 +1153,20 @@ class zmod_color:
 
         if len(not_home_indices) > 1:
             if gcmd:
+                tools_str = ", ".join([f"T{i}" for i in not_home_indices])
                 if self.lang == 'ru':
-                    msg = f"Больше 1 экструдера не дома! {not_home_indices}"
+                    msg = f"Больше 1 экструдера не дома! {tools_str}"
                 else:
-                    msg = f"More than 1 extruder not at home! {not_home_indices}"
+                    msg = f"More than 1 extruder not at home! {tools_str}"
                 raise gcmd.error(msg)
             return -2
         if len(on_head_indices) > 1:
             if gcmd:
+                tools_str = ", ".join([f"T{i}" for i in on_head_indices])
                 if self.lang == 'ru':
-                    msg = f"Больше 1 экструдера на голове! {on_head_indices}"
+                    msg = f"Больше 1 экструдера на голове! {tools_str}"
                 else:
-                    msg = f"More than 1 extruder on head! {on_head_indices}"
+                    msg = f"More than 1 extruder on head! {tools_str}"
                 raise gcmd.error(msg)
             return -2
 
@@ -1192,18 +1194,20 @@ class zmod_color:
                 self.active_tool_id = -2
                 if gcmd:
                     if self.lang == 'ru':
-                        msg = f"Рассинхрон датчиков: Экструдер {not_home_indices[0]} не дома, но датчик головы видит Экструдер {on_head_indices[0]}!"
+                        msg = f"Рассинхрон датчиков: T{not_home_indices[0]} не дома, но датчик головы видит T{on_head_indices[0]}!"
                     else:
-                        msg = f"Sensor mismatch: Extruder {not_home_indices[0]} is not at home, but head sensor sees Extruder {on_head_indices[0]}!"
+                        msg = f"Sensor mismatch: T{not_home_indices[0]} is not at home, but head sensor sees T{on_head_indices[0]}!"
                     raise gcmd.error(msg)
                 return -2
 
         self.active_tool_id = -2
         if gcmd:
+            tools_str_head = ", ".join([f"T{i}" for i in on_head_indices])
+            tools_str_not_home = ", ".join([f"T{i}" for i in not_home_indices])
             if self.lang == 'ru':
-                msg = f"Ошибка датчиков: Не дома {not_home_indices}. На голове: {on_head_indices}."
+                msg = f"Ошибка датчиков: Не дома {tools_str_not_home}. На голове: {tools_str_head}."
             else:
-                msg = f"Sensor error: Not at home {not_home_indices}. On head: {on_head_indices}."
+                msg = f"Sensor error: Not at home {tools_str_not_home}. On head: {tools_str_head}."
             raise gcmd.error(msg)
         return -2
 
@@ -1355,12 +1359,7 @@ class zmod_color:
                     msg = f"Cannot pick T{t_index}. Carriage is busy with extruder T{active_t}! Call _T_OUT first."
                 raise gcmd.error(msg)
             else:
-                try:
-                    self.cmd_T_OUT(gcmd)
-                except Exception as e:
-                    msg = f"Не удалось взять T{t_index}, так как автовыгрузка завершилась ошибкой: {str(e)}" if self.lang == 'ru' else f"Cannot pick T{t_index} because automatic unload failed: {str(e)}"
-                    raise gcmd.error(msg)
-
+                self.cmd_T_OUT(gcmd)
                 try:
                     active_t = self._get_active_extruder(gcmd)
                 except Exception:
@@ -1369,9 +1368,9 @@ class zmod_color:
                 if active_t != -1:
                     self.active_tool_id = -2
                     if self.lang == 'ru':
-                        msg = f"Невозможно взять T{t_index}. Каретка занята экструдером T{active_t}! Сначала вызовите _T_OUT."
+                        msg = f"Невозможно взять T{t_index}. Каретка занята T{active_t}! Сначала вызовите _T_OUT."
                     else:
-                        msg = f"Cannot pick T{t_index}. Carriage is busy with extruder T{active_t}! Call _T_OUT first."
+                        msg = f"Cannot pick T{t_index}. Carriage is busy with T{active_t}! Call _T_OUT first."
                     raise gcmd.error(msg)
 
         if 'z' not in homed_axes:
