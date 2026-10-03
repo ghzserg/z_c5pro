@@ -1355,7 +1355,6 @@ class zmod_color:
                     msg = f"Cannot pick T{t_index}. Carriage is busy with extruder T{active_t}! Call _T_OUT first."
                 raise gcmd.error(msg)
             else:
-
                 try:
                     self.cmd_T_OUT(gcmd)
                 except Exception as e:
@@ -1506,10 +1505,16 @@ class zmod_color:
         if 'x' not in homed_axes or 'y' not in homed_axes:
             self.gcode.run_script_from_command("G28.1 X Y\nM400")
 
+        last_error_msg = ""
         try:
             t_index = self._get_active_extruder(gcmd)
-        except Exception:
+        except Exception as e:
+            last_error_msg = str(e)
             t_index = -2
+
+        if t_index == -2:
+            msg = f"Ошибка датчиков при выгрузке: {last_error_msg}" if self.lang == 'ru' else f"Sensor error during unload: {last_error_msg}"
+            raise gcmd.error(msg)
 
         if t_index == -1:
             if silent == 0:
