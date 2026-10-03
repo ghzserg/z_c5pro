@@ -629,6 +629,7 @@ class zmod_color:
         self.display = config.getboolean('display', True)
         self.lang = 'en'
         self.plate_z = config.getfloat('plate_z', 0.061)        # Толщина платы по Z
+        self.retry = config.getint('retry', 5)        # Сколько делать повторов при ошибке
 
         temp_defaults = {
             "PLA":      {"temp": 220, "temp_manual": 250, "temp_wait": 120},
@@ -1333,7 +1334,10 @@ class zmod_color:
         if 'x' not in homed_axes or 'y' not in homed_axes:
             self.gcode.run_script_from_command("G28.1 X Y\nM400")
 
-        active_t = self._get_active_extruder(gcmd)
+        try:
+            active_t = self._get_active_extruder(gcmd)
+        except Exception:
+            active_t = -2
 
         if active_t == t_index and 'z' in homed_axes:
             if self.lang == 'ru':
@@ -1351,8 +1355,18 @@ class zmod_color:
                     msg = f"Cannot pick T{t_index}. Carriage is busy with extruder T{active_t}! Call _T_OUT first."
                 raise gcmd.error(msg)
             else:
-                self.cmd_T_OUT(gcmd)
-                active_t = self._get_active_extruder(gcmd)
+
+                try:
+                    self.cmd_T_OUT(gcmd)
+                except Exception as e:
+                    msg = f"Не удалось взять T{t_index}, так как автовыгрузка завершилась ошибкой: {str(e)}" if self.lang == 'ru' else f"Cannot pick T{t_index} because automatic unload failed: {str(e)}"
+                    raise gcmd.error(msg)
+
+                try:
+                    active_t = self._get_active_extruder(gcmd)
+                except Exception:
+                    active_t = -2
+
                 if active_t != -1:
                     self.active_tool_id = -2
                     if self.lang == 'ru':
@@ -1426,39 +1440,56 @@ class zmod_color:
         if current_z < 5.0:
             self.gcode.run_script_from_command("G1 Z5.000 F1200\nM400")
 
-        # Формируем и выполняем последовательность G-code команд
-        script = [
-            "SET_VELOCITY_LIMIT ACCEL=8000",
-            "_SET_GCODE_OFFSET_FAST X=0 Y=0 MOVE=1 MOVE_SPEED=100 FROM=_T_IN",
-            "G1 X250 F30000",
-            f"G1 Y{park_y:.3f}",
-            "G1 X280",
-            f"G1 X{park_x:.3f} F5400",
-            "M400",
-            "MOTOR_GRAB",
-            f"G1 X{park_x_minus_20:.3f} F4800",
-            "MOTOR_GRAB2",
-            "G1 X250 F1500",
-            f"_SET_GCODE_OFFSET_FAST X={calc_offset_x:.3f} Y={calc_offset_y:.3f} MOVE=1 MOVE_SPEED=100 FROM=_T_IN",
-            f"_SET_GCODE_OFFSET_FAST Z={calc_offset_z:.3f} MOVE=1 MOVE_SPEED=40 FROM=_T_IN",
-            "MOTOR_STOP",
-            "SET_VELOCITY_LIMIT ACCEL=20000",
-            "M400"
-        ]
+        success = False
+        last_error_msg = ""
+        for attempt in range(1, self.retry + 1):
+            if self.lang == 'ru':
+                gcmd.respond_info(f"Попытка захвата T{t_index}: {attempt} из {self.retry}...")
+            else:
+                gcmd.respond_info(f"Grab attempt for T{t_index}: {attempt} of {self.retry}...")
 
-        self.gcode.run_script_from_command("\n".join(script))
+            script = [
+                "SET_VELOCITY_LIMIT ACCEL=8000",
+                "_SET_GCODE_OFFSET_FAST X=0 Y=0 MOVE=1 MOVE_SPEED=100 FROM=_T_IN",
+                "G1 X250 F30000",
+                f"G1 Y{park_y:.3f}",
+                "G1 X280",
+                f"G1 X{park_x:.3f} F5400",
+                "M400",
+                "MOTOR_GRAB",
+                f"G1 X{park_x_minus_20:.3f} F4800",
+                "MOTOR_GRAB2",
+                "G1 X250 F1500",
+                f"_SET_GCODE_OFFSET_FAST X={calc_offset_x:.3f} Y={calc_offset_y:.3f} MOVE=1 MOVE_SPEED=100 FROM=_T_IN",
+                f"_SET_GCODE_OFFSET_FAST Z={calc_offset_z:.3f} MOVE=1 MOVE_SPEED=40 FROM=_T_IN",
+                "MOTOR_STOP",
+                "SET_VELOCITY_LIMIT ACCEL=20000",
+                "M400"
+            ]
+            self.gcode.run_script_from_command("\n".join(script))
+
+            try:
+                active_t = self._get_active_extruder(gcmd)
+                if active_t == t_index:
+                    success = True
+                    break
+                else:
+                    last_error_msg = f"Неверный экструдер в голове (T{active_t} != T{t_index})" if self.lang == 'ru' else f"Wrong extruder in head (T{active_t} != T{t_index})"
+            except Exception as e:
+                last_error_msg = str(e)
+
+            if self.lang == 'ru':
+                gcmd.respond_raw(f"// Предупреждение: Ошибка захвата T{t_index} ({last_error_msg}). Сброс и повтор...")
+            else:
+                gcmd.respond_raw(f"// Warning: Failed to grab T{t_index} ({last_error_msg}). Retrying...")
 
         if not is_absolute:
             self.gcode.run_script_from_command("G91")
 
-        active_t = self._get_active_extruder(gcmd)
-        if active_t != t_index:
-            self.active_tool_id = -2
-            if self.lang == 'ru':
-                msg = f"Неверный экструдер в голове. Должен быть T{t_index} != T{active_t}"
-            else:
-                msg = f"Wrong extruder on head. Should be T{t_index} != T{active_t}"
+        if not success:
+            msg = f"Ошибка T_IN после {self.retry} попыток. Последний сбой: {last_error_msg}" if self.lang == 'ru' else f"T_IN Error after {self.retry} attempts. Last failure: {last_error_msg}"
             raise gcmd.error(msg)
+
 
     # Вернуть экструдер на место
     def cmd_T_OUT(self, gcmd):
@@ -1473,7 +1504,10 @@ class zmod_color:
         if 'x' not in homed_axes or 'y' not in homed_axes:
             self.gcode.run_script_from_command("G28.1 X Y\nM400")
 
-        t_index = self._get_active_extruder(gcmd)
+        try:
+            t_index = self._get_active_extruder(gcmd)
+        except Exception:
+            t_index = -2
 
         if t_index == -1:
             if silent == 0:
@@ -1538,21 +1572,43 @@ class zmod_color:
         # Вычисляем промежуточную точку входа (X_park - 10)
         park_x_minus_10 = park_x - 10.0
 
-        script = [
-            "SET_VELOCITY_LIMIT ACCEL=8000",
-            "_SET_GCODE_OFFSET_FAST X=0 Y=0 MOVE=1 MOVE_SPEED=100 FROM=_T_OUT",
-            "G1 X250 F30000.000",
-            f"G1 Y{park_y:.3f}",
-            f"G1 X{park_x_minus_10:.3f}",
-            f"G1 X{park_x:.3f} F5400",
-            "MOTOR_RELEASE",
-            "G1 X250 F4800",
-            "MOTOR_STOP",
-            "SET_VELOCITY_LIMIT ACCEL=20000",
-            "M400"
-        ]
+        success = False
+        last_error_msg = ""
+        for attempt in range(1, self.retry + 1):
+            if self.lang == 'ru':
+                gcmd.respond_info(f"Попытка разгрузки T{t_index}: {attempt} из {self.retry}...")
+            else:
+                gcmd.respond_info(f"Unload attempt for T{t_index}: {attempt} of {self.retry}...")
 
-        self.gcode.run_script_from_command("\n".join(script))
+            script = [
+                "SET_VELOCITY_LIMIT ACCEL=8000",
+                "_SET_GCODE_OFFSET_FAST X=0 Y=0 MOVE=1 MOVE_SPEED=100 FROM=_T_OUT",
+                "G1 X250 F30000.000",
+                f"G1 Y{park_y:.3f}",
+                f"G1 X{park_x_minus_10:.3f}",
+                f"G1 X{park_x:.3f} F5400",
+                "MOTOR_RELEASE",
+                "G1 X250 F4800",
+                "MOTOR_STOP",
+                "SET_VELOCITY_LIMIT ACCEL=20000",
+                "M400"
+            ]
+            self.gcode.run_script_from_command("\n".join(script))
+
+            try:
+                active_t = self._get_active_extruder(gcmd)
+                if active_t == -1:
+                    success = True
+                    break
+                else:
+                    last_error_msg = f"Экструдер T{active_t} все еще в голове" if self.lang == 'ru' else f"Extruder T{active_t} is still on head"
+            except Exception as e:
+                last_error_msg = str(e)
+
+            if self.lang == 'ru':
+                gcmd.respond_raw(f"// Предупреждение: Ошибка разгрузки T{t_index} ({last_error_msg}). Повтор...")
+            else:
+                gcmd.respond_raw(f"// Warning: Failed to unload T{t_index} ({last_error_msg}). Retrying...")
 
         if not is_absolute:
             self.gcode.run_script_from_command("G91")
@@ -1564,20 +1620,16 @@ class zmod_color:
             if active_mesh:
                 self.gcode.run_script_from_command(f"BED_MESH_PROFILE LOAD={active_mesh} FROM=_T_OUT")
 
-        active_t = self._get_active_extruder(gcmd)
-        if active_t != -1:
+        if not success:
             self.active_tool_id = -2
-            if self.lang == 'ru':
-                msg = f"Экструдер T{active_t} не снят с головы."
-            else:
-                msg = f"Extruder T{active_t} not removed from head."
+            msg = f"Ошибка T_OUT после {self.retry} попыток. Последний сбой: {last_error_msg}" if self.lang == 'ru' else f"T_OUT Error after {self.retry} attempts. Last failure: {last_error_msg}"
             raise gcmd.error(msg)
 
         # Восстановление физических координат
         if save_t == 1:
             self.gcode.run_script_from_command("RESTORE_GCODE_STATE NAME=_T_TOOL_STATE MOVE=1 MOVE_SPEED=100")
 
-            self.active_tool_id = -1
+        self.active_tool_id = -1
 
     def cmd_GET_ZCOLOR(self, gcmd):
         silent = gcmd.get_int('SILENT', 0)
