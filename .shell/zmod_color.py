@@ -1483,6 +1483,8 @@ class zmod_color:
             else:
                 gcmd.respond_raw(f"// Warning: Failed to grab T{t_index} ({last_error_msg}). Retrying...")
 
+            self.gcode.run_script_from_command("MOTOR_RELEASE\nG1 X250 F4800\nMOTOR_STOP\nM400")
+
         if not is_absolute:
             self.gcode.run_script_from_command("G91")
 
