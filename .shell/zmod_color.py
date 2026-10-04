@@ -1323,7 +1323,7 @@ class zmod_color:
         if saved_gcode_x > 250.00:
             self.gcode.run_script_from_command(f"G1 X250 F6000\nM400")
             self.gcode.run_script_from_command(f"G1 Y{saved_gcode_y:.3f} F6000\nM400")
-        self.gcode.run_script_from_command(f"G1 X{saved_gcode_x:.3f}\nM400\nG1 Y{saved_gcode_y:.3f} F6000\nM400\nG1 Z{saved_gcode_z:.3f} F500\nM400")
+        self.gcode.run_script_from_command(f"G1 X{saved_gcode_x:.3f} F6000\nM400\nG1 Y{saved_gcode_y:.3f} F6000\nM400\nG1 Z{saved_gcode_z:.3f} F500\nM400")
 
         # Восстановление физических координат
         self.gcode.run_script_from_command("RESTORE_GCODE_STATE NAME=_T_TOOL_STATE MOVE=1 MOVE_SPEED=100")
