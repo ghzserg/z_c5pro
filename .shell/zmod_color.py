@@ -1319,6 +1319,10 @@ class zmod_color:
         saved_gcode_y = saved_last_position[1] - saved_base_position[1]
         saved_gcode_z = saved_last_position[2] - saved_base_position[2]
 
+        # Объезжаем экструдеры
+        if saved_gcode_x > 250.00:
+            self.gcode.run_script_from_command(f"G1 X250 F6000\nM400")
+            self.gcode.run_script_from_command(f"G1 Y{saved_gcode_y:.3f} F6000\nM400")
         self.gcode.run_script_from_command(f"G1 X{saved_gcode_x:.3f}\nM400\nG1 Y{saved_gcode_y:.3f} F6000\nM400\nG1 Z{saved_gcode_z:.3f} F500\nM400")
 
         # Восстановление физических координат
@@ -2630,7 +2634,9 @@ class zmod_color:
             "G1 Z10 F1200",
             "M400",
             "SET_FAN_SPEED FAN=chamber_fan SPEED=0.500",        # Включаем выдув
-            "MUTE_MODE_DISABLE"
+            "MUTE_MODE_DISABLE",
+            "G1 Z5 F600",
+            "M400"
         ]
         self.gcode.run_script_from_command("\n".join(script))
 
