@@ -1524,7 +1524,7 @@ class zmod_color:
             return
 
         if heater_off == 1:
-            self.gcode.run_script_from_command(f"M104 S0 T{t_index}")
+            self.gcode.run_script_from_command(f"M104.1 S0 T{t_index}")
 
         # Логика сохранения состояния
         if save_t == 1:
@@ -1540,8 +1540,9 @@ class zmod_color:
                     self.saved_temperature = float(current_target)
 
                     # Если целевая температура этого конкретного хотенда выше 140, снижаем её
-                    if self.saved_temperature > 140.0:
-                        self.gcode.run_script_from_command(f"_WAIT_TEMP T={t_index} EXTRUDER_TEMP=140 BED_TEMP=0 FROM=_T_OUT")
+                    slot_config = self.get_filament_config_t(t_index)
+                    if self.saved_temperature > slot_config.get('temp_wait'):
+                        self.gcode.run_script_from_command(f"M104.1 T{t_index} S{slot_config.get('temp_wait'):.3f}")
 
         try:
             with open(FFCONFIG + 'extruder.json', 'r', encoding='utf-8') as file:
@@ -2541,7 +2542,7 @@ class zmod_color:
                 f"G1 E{tube:.3f} F240",
                 "M400",
                 "_ENABLE_SENSOR",
-                f"M104 S{slot_config.get('temp_wait'):.3f} T{zslot-1}",
+                f"M104.1 S{slot_config.get('temp_wait'):.3f} T{zslot-1}",
                 "_T_OUT NO_Z=0"
             ]
             self.gcode.run_script_from_command("\n".join(script))
@@ -2987,7 +2988,7 @@ class zmod_color:
             raise gcmd.error("PA calibration failed: No successful values found in any pass.")
 
         script = [
-            f"M104 T{t_fiz} S{slot_config.get('temp_wait'):.2f}", # Остужаем экструдер
+            f"M104.1 T{t_fiz} S{slot_config.get('temp_wait'):.2f}", # Остужаем экструдер
             f"G1 Y{slot_config.get('trash_y'):.2f} F24000",       # Возвращаем координаты
             f"G1 X{slot_config.get('trash_x'):.2f} F2400",
             "M400",
