@@ -402,10 +402,10 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('flui
             "alias": "Выключить принтер",
             "categoryId": "0077449b-cd10-4059-aebd-bf17be6cb270",
             "color": "#ff0000",
-            "disabledWhilePrinting": false,
+            "disabledWhilePrinting": true,
             "name": "shutdown",
             "order": 10,
-            "visible": false
+            "visible": true
         },
         {
             "alias": "",
@@ -1078,7 +1078,7 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('main
                "name" : "SHUTDOWN",
                "pos" : 2,
                "showInPause" : true,
-               "showInPrinting" : true,
+               "showInPrinting" : false,
                "showInStandby" : true
             },
             {
@@ -1224,7 +1224,7 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('main
                "name" : "SHUTDOWN",
                "pos" : 2,
                "showInPause" : true,
-               "showInPrinting" : true,
+               "showInPrinting" : false,
                "showInStandby" : true
             },
             {

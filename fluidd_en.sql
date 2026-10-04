@@ -395,10 +395,10 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('flui
             "alias": "",
             "categoryId": "0077449b-cd10-4059-aebd-bf17be6cb270",
             "color": "#ff0000",
-            "disabledWhilePrinting": false,
+            "disabledWhilePrinting": true,
             "name": "shutdown",
             "order": 10,
-            "visible": false
+            "visible": true
         },
         {
             "alias": "",
