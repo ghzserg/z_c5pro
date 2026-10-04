@@ -17,7 +17,7 @@ if [ ${C5PRO} -eq 1 ] && ! grep -q 'START=off' ${MOD_CONF}/mod_data/camera.conf;
     printf '\x00\x00\x00\x00' | dd of=/usr/prog/PROGRAM/software/firmwareExe bs=1 seek=$((0x0063C33C)) conv=notrunc
     # 1.9.9
     [ "$FILE_MD5" = "50bce9af77fb537e2170087102785d4a" ] && \
-    printf '\x00\x00\x00\x00' | dd of=/usr/prog/PROGRAM/software/firmwareExe bs=1 seek=$((0x0063BB9D)) conv=notrunc
+    printf '\x00\x00\x00\x00' | dd of=/usr/prog/PROGRAM/software/firmwareExe bs=1 seek=6536157 conv=notrunc
 fi
 
 CHECH_ARCH=`uname -m`
