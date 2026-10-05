@@ -1248,6 +1248,16 @@ class zmod_color:
         gcmd.respond_raw(f"// Top: {top_state}")
         gcmd.respond_raw(f"// Offset: X={self.gcode_move.homing_position[0]:.3f} Y={self.gcode_move.homing_position[1]:.3f} Z={self.gcode_move.homing_position[2]:.3f} ({self.temp_z_offset():.3f})")
 
+        try:
+            with open(FFCONFIG + 'zoffset.json', 'r', encoding='utf-8') as file:
+                raw = file.read()
+                clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
+                z_cfg = json.loads(clean)
+            z_offsets_str = ", ".join([f"T{i}:{float(z_cfg.get(f'z_offset_t{i+1}', 0.0)):.3f}" for i in range(4)])
+            gcmd.respond_raw(f"// zoffset.json: {z_offsets_str}")
+        except Exception as e:
+            gcmd.respond_raw(f"// zoffset.json: Error reading file ({str(e)})")
+
     def cmd_T_G28(self, gcmd):
         params = gcmd.get_command_parameters()
 
