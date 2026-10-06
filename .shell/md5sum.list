@@ -2038,7 +2038,6 @@ be1a0d5c33cbddd3d405a00f99cd3fef  ./usr/prog/klipper/klippy/extras/extruder_step
 d87019e5fb1f74410461519d80bc97c2  ./usr/prog/klipper/klippy/extras/fan.py
 f7fdf5a251ef58f427bad00264f01434  ./usr/prog/klipper/klippy/extras/ff_eddy.py
 ea71517d5d991514964cb6b4fe879ddb  ./usr/prog/klipper/klippy/extras/filament_motion_sensor.py
-4946f115eab98ce74f280ad3e6decafe  ./usr/prog/klipper/klippy/extras/filament_switch_sensor.py
 b39a1fbb029b5cab875e33f6e91de3c4  ./usr/prog/klipper/klippy/extras/firmware_retraction.py
 5d223738cb6465b6cec0c2e7e4a35b18  ./usr/prog/klipper/klippy/extras/force_move.py
 ec9f1f40d8ac9369c1626b8581c38bd6  ./usr/prog/klipper/klippy/extras/gcode_arcs.py
