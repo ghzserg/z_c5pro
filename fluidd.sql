@@ -565,6 +565,15 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('flui
             "visible": true
         },
         {
+            "alias": "T_INFO",
+            "categoryId": "244d667b-c410-4e01-9bf1-e8e0b9deabe2",
+            "color": "",
+            "disabledWhilePrinting": true,
+            "name": "t_info",
+            "order": 10,
+            "visible": true
+        },
+        {
             "alias": "Калибровка ремней",
             "categoryId": "244d667b-c410-4e01-9bf1-e8e0b9deabe2",
             "color": "",
@@ -993,6 +1002,14 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('main
                "color" : "group",
                "name" : "CALIBRATE_VFA",
                "pos" : 8,
+               "showInPause" : false,
+               "showInPrinting" : false,
+               "showInStandby" : true
+            },
+            {
+               "color" : "group",
+               "name" : "T_INFO",
+               "pos" : 9,
                "showInPause" : false,
                "showInPrinting" : false,
                "showInStandby" : true
