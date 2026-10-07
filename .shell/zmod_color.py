@@ -2035,7 +2035,7 @@ class zmod_color:
 
                     # 2. Формируем текст и параметры цвета в зависимости от наличия данных из файла
                     if file_color_hex or file_material:
-                        file_color_name = self.COLOR_MAPPING.get(file_color_hex.lower(), file_color_hex) if file_color_hex else "?"
+                        raw_color_name  = self.COLOR_MAPPING.get(file_color_hex.lower(), file_color_hex) if file_color_hex else "?"
                         file_color_name = raw_color_name.replace('_', '/', 1) if raw_color_name.startswith('_') else raw_color_name
                         file_mat_display = file_material if file_material else "?"
                         file_btn_text = f"{self._t('file_tool')} ({file_mat_display} {file_color_name})"
