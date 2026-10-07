@@ -2056,13 +2056,13 @@ class zmod_color:
                         tool_name = f"T{tool_idx}" if not one_based_indexes else str(tool_idx+1)
 
                         btn_text = (
-                            f"{t_info['ID']}: "
+                            f"{slot_info['ID']}: "
                             f"{slot_info['Material']} {color_name}"
                         )
                         params = f"LEVELING={leveling} AUTOPA={autopa} FILENAME=\"{fname}\" ALLOWED_TOOL_COUNT={allowed_tool_count} {current_tools_param_text}"
 
                         gcmd.respond_raw(
-                            f"// action:prompt_button {tool_name}: {file_btn_text}|"
+                            f"// action:prompt_button {tool_name}: {file_btn_text} -> |"
                             f"CHANGE_T_ZCOLOR T={tool_idx} {params}{file_btn_color_param}"
                         )
                         gcmd.respond_raw(
