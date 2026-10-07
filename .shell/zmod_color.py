@@ -2035,10 +2035,10 @@ class zmod_color:
 
                     # 2. Формируем текст и параметры цвета в зависимости от наличия данных из файла
                     if file_color_hex or file_material:
-                        raw_color_name  = self.COLOR_MAPPING.get(file_color_hex.lower(), file_color_hex) if file_color_hex else "?"
-                        file_color_name = raw_color_name.replace('_', '/', 1) if raw_color_name.startswith('_') else raw_color_name
+                        raw_color_name  = self.COLOR_MAPPING.get(file_color_hex.lower(), file_color_hex) if file_color_hex else ""
+                        file_color_name = raw_color_name.replace('_', '/', 1) if raw_color_name..startswith('_') else ''
                         file_mat_display = file_material if file_material else "?"
-                        file_btn_text = f"{self._t('file_tool')} ({file_mat_display} {file_color_name})"
+                        file_btn_text = f"{file_mat_display} {file_color_name}"
 
                         if file_color_hex:
                             file_btn_color_param = f"|primary|{file_color_hex}"
@@ -2056,7 +2056,7 @@ class zmod_color:
                         tool_name = f"T{tool_idx}" if not one_based_indexes else str(tool_idx+1)
 
                         btn_text = (
-                            f"{self._t('spool')} {slot_info['ID']}: "
+                            f"{t_info['ID']}: "
                             f"{slot_info['Material']} {color_name}"
                         )
                         params = f"LEVELING={leveling} AUTOPA={autopa} FILENAME=\"{fname}\" ALLOWED_TOOL_COUNT={allowed_tool_count} {current_tools_param_text}"
