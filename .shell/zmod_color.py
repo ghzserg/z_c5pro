@@ -2045,7 +2045,7 @@ class zmod_color:
                         else:
                             file_btn_color_param = "|primary"
                     else:
-                        file_btn_text = f"{self._t('file_tool')} (?)"
+                        file_btn_text = "?/?"
                         file_btn_color_param = ""
 
                     for slot_info in result:
