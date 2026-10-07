@@ -2012,7 +2012,7 @@ class zmod_color:
                 if len(color_indexes) < 10:
                     buttons_per_group = 3
                 if len(color_indexes) < 7:
-                    buttons_per_group = 4
+                    buttons_per_group = 1
 
                 button_index = 0
 
