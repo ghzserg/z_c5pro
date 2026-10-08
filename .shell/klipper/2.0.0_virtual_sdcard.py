@@ -84,6 +84,8 @@ class VirtualSD:
         self.gcode_ex_used = ['T99', 'T99', 'T99', 'T99', 'T99', 'T99']
         self.gcode_ex_used_changed = ['T99', 'T99', 'T99', 'T99', 'T99', 'T99']
         # fp add for preheat (nozzle pre-heating)
+        self.enable_speed_return = config.getboolean('enable_speed_return', True)
+        self.config_enable_preheat = config.getboolean('enable_preheat', True)
         self.find_flag = FIND_PRINT_END
         self.find_next_fname = None
         self.partial_input = b""
@@ -802,7 +804,7 @@ class VirtualSD:
                             self.file_position = self.next_file_position
                             continue
 
-                if self.after_channel_g1 and (b'G1' in line or b'G0' in line):
+                if self.enable_speed_return and self.after_channel_g1 and (b'G1' in line or b'G0' in line):
                     comment_pos = line.find(b';')
                     if comment_pos != -1:
                         line = line[:comment_pos]
@@ -863,7 +865,8 @@ class VirtualSD:
                     clean_t = line.split(b';')[0].strip()
                     if clean_t in VALID_GCODE_T:
                         # fp add for preheat
-                        self.find_next_active_channel(seek_pos, lines, partial_input, clean_t)
+                        if self.config_enable_preheat:
+                            self.find_next_active_channel(seek_pos, lines, partial_input, clean_t)
                         # end
                         self.print_channel = int(clean_t[1:].decode())
                         if self.print_channel != self.load_channel:
@@ -872,7 +875,7 @@ class VirtualSD:
                             exclude_object = self.printer.lookup_object('exclude_object', None)
                             if exclude_object is not None:
                                 current_object = exclude_object.get_status(curtime)['current_object']
-                            if current_object :
+                            if current_object:
                                 self.gcode.run_script_from_command("EXCLUDE_OBJECT_END NAME={}".format(current_object))
                             self.gcode.run_script("M400")
                             self.change_filament = True
