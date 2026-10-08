@@ -478,18 +478,20 @@ class VirtualSD:
                     if match:
                         self.pretemp = int(match.group(1))
                         self.has_preheat = True
-            if line in VALID_GCODE_T:
-                remapped = self._remap_head(line)
-                # Collect the (remapped) head used in the model
-                if remapped not in self.heater_head:
-                    self.heater_head.append(remapped)
+            if line.startswith(b'T'):
+                clean_t = line.split(b';')[0].strip()
+                if clean_t in VALID_GCODE_T:
+                    remapped = self._remap_head(clean_t)
+                    # Collect the (remapped) head used in the model
+                    if remapped not in self.heater_head:
+                        self.heater_head.append(remapped)
 
-                if self.find_flag == FIND_ONE:
-                    self.find_flag = FIND_OK
-                    self._finish_preheat()
-                    return
-                else:
-                    self.find_flag = FIND_ONE
+                    if self.find_flag == FIND_ONE:
+                        self.find_flag = FIND_OK
+                        self._finish_preheat()
+                        return
+                    else:
+                        self.find_flag = FIND_ONE
 
         try:
             fname = os.path.join(self.sdcard_dirname, self.find_next_fname)
@@ -529,18 +531,20 @@ class VirtualSD:
                         if match:
                             self.pretemp = int(match.group(1))
                             self.has_preheat = True
-                if line in VALID_GCODE_T:
-                    remapped = self._remap_head(line)
-                    if remapped not in self.heater_head:
-                        self.heater_head.append(remapped)
-                    if self.find_flag == FIND_ONE:
-                        self.find_flag = FIND_OK
-                        self._finish_preheat()
-                        f.close()
-                        f = None
-                        return
-                    else:
-                        self.find_flag = FIND_ONE
+                if line.startswith(b'T'):
+                    clean_t = line.split(b';')[0].strip()
+                    if clean_t in VALID_GCODE_T:
+                        remapped = self._remap_head(clean_t)
+                        if remapped not in self.heater_head:
+                            self.heater_head.append(remapped)
+                        if self.find_flag == FIND_ONE:
+                            self.find_flag = FIND_OK
+                            self._finish_preheat()
+                            f.close()
+                            f = None
+                            return
+                        else:
+                            self.find_flag = FIND_ONE
 
         # Other head cooling
         self._finish_preheat()
@@ -606,18 +610,20 @@ class VirtualSD:
                     if match:
                         self.pretemp = int(match.group(1))
                         self.has_preheat = True
-            if line in VALID_GCODE_T:
-                remapped = self._remap_head(line)
-                if remapped not in self.heater_head:
-                    self.heater_head.append(remapped)
-                if self.find_flag == FIND_ONE:
-                    self.find_flag = FIND_OK
-                    self._finish_preheat()
-                    f.close()
-                    f = None
-                    return
-                else:
-                    self.find_flag = FIND_ONE
+            if line.startswith(b'T'):
+                clean_t = line.split(b';')[0].strip()
+                if clean_t in VALID_GCODE_T:
+                    remapped = self._remap_head(clean_t)
+                    if remapped not in self.heater_head:
+                        self.heater_head.append(remapped)
+                    if self.find_flag == FIND_ONE:
+                        self.find_flag = FIND_OK
+                        self._finish_preheat()
+                        f.close()
+                        f = None
+                        return
+                    else:
+                        self.find_flag = FIND_ONE
         f.close()
         f = None
     # fp add for preheat (nozzle pre-heating) - end
@@ -716,8 +722,9 @@ class VirtualSD:
             self.next_file_position = next_file_position
 
             if not line.startswith(b";"):
-                t_match = (_REGEX_T_VALUE.search(line)
-                           if b'T' in line else None)
+                line_code_only = line.split(b';')[0]
+                t_match = (_REGEX_T_VALUE.search(line_code_only)
+                           if b'T' in line_code_only else None)
                 if t_match:
                     ex_index = t_match.group(1).decode()
                     if self.need_check_ex or self.no_filament_check_ex:
@@ -852,36 +859,38 @@ class VirtualSD:
                 #        exclude_line = exclude_line.replace("EXCLUDE_OBJECT_END", "EXCLUDE_OBJECT_START")
                 #        self.gcode.run_script(exclude_line)
 
-                if line.startswith(b"T") and line in VALID_GCODE_T:
-                    # fp add for preheat
-                    self.find_next_active_channel(seek_pos, lines, partial_input, line)
-                    # end
-                    self.print_channel = int(line[1:].decode())
-                    if self.print_channel != self.load_channel:
-                        curtime = self.reactor.monotonic()
-                        current_object = None
-                        exclude_object = self.printer.lookup_object('exclude_object', None)
-                        if exclude_object is not None:
-                            current_object = exclude_object.get_status(curtime)['current_object']
-                        if current_object :
-                            self.gcode.run_script_from_command("EXCLUDE_OBJECT_END NAME={}".format(current_object))
-                        self.gcode.run_script("M400")
-                        self.change_filament = True
-                        self.doingChangeEx = True
-                        # zmod 1.13
-                        self.gcode.run_script(f"_A_CHANGE_FILAMENT T={self.print_channel}")
-                        while self.change_filament and not self.must_pause_work:
-                            self.reactor.pause(self.reactor.monotonic() + 0.05)
-                        if self.must_pause_work:
-                            break;
-                        if current_object:
-                            self.gcode.run_script_from_command("EXCLUDE_OBJECT_START NAME={}".format(current_object))
-                        self.gcode.run_script(self.set_velocity_limit)
-                        self.after_channel_g1 = True
-                    self.load_channel = self.print_channel
-                    self.change_filament = False
-                    self.file_position = self.next_file_position
-                    continue
+                if line.startswith(b"T"):
+                    clean_t = line.split(b';')[0].strip()
+                    if clean_t in VALID_GCODE_T:
+                        # fp add for preheat
+                        self.find_next_active_channel(seek_pos, lines, partial_input, clean_t)
+                        # end
+                        self.print_channel = int(clean_t[1:].decode())
+                        if self.print_channel != self.load_channel:
+                            curtime = self.reactor.monotonic()
+                            current_object = None
+                            exclude_object = self.printer.lookup_object('exclude_object', None)
+                            if exclude_object is not None:
+                                current_object = exclude_object.get_status(curtime)['current_object']
+                            if current_object :
+                                self.gcode.run_script_from_command("EXCLUDE_OBJECT_END NAME={}".format(current_object))
+                            self.gcode.run_script("M400")
+                            self.change_filament = True
+                            self.doingChangeEx = True
+                            # zmod 1.13
+                            self.gcode.run_script(f"_A_CHANGE_FILAMENT T={self.print_channel}")
+                            while self.change_filament and not self.must_pause_work:
+                                self.reactor.pause(self.reactor.monotonic() + 0.05)
+                            if self.must_pause_work:
+                                break;
+                            if current_object:
+                                self.gcode.run_script_from_command("EXCLUDE_OBJECT_START NAME={}".format(current_object))
+                            self.gcode.run_script(self.set_velocity_limit)
+                            self.after_channel_g1 = True
+                        self.load_channel = self.print_channel
+                        self.change_filament = False
+                        self.file_position = self.next_file_position
+                        continue
 
                 # Try C-level fast path for simple G0/G1 moves
                 fast_ok = False
