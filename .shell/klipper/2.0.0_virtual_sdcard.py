@@ -880,7 +880,7 @@ class VirtualSD:
                             self.gcode.run_script("M400")
                             self.change_filament = True
                             self.doingChangeEx = True
-                            # zmod 1.13
+                            # zmod
                             self.gcode.run_script(f"_A_CHANGE_FILAMENT T={self.print_channel}")
                             while self.change_filament and not self.must_pause_work:
                                 self.reactor.pause(self.reactor.monotonic() + 0.05)
