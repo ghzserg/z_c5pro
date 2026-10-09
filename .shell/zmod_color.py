@@ -2266,7 +2266,7 @@ class zmod_color:
         channel_num = 0
         bed_temp = 65.0
 
-        if filename.lower().endswith('.3mf')
+        if filename.lower().endswith('.3mf'):
             return channel_num, bed_temp
 
         pattern = re.compile(r'^T([1-9]?[0-9])')
