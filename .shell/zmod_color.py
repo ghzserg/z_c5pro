@@ -1739,11 +1739,12 @@ class zmod_color:
         save_variables = {} if self.save_variables == None else self.save_variables.allVariables
         scan_files_setting = save_variables.get('scan_file_colors', 0)
 
-        if scan_files_setting == 0:
+        fname = gcmd.get('FILENAME', '')
+
+        if scan_files_setting == 0 or fname.lower().endswith('.3mf'):
             tool_count = self.get_allowed_tool_count(gcmd)
             return [(i, '', '') for i in range(tool_count)]
 
-        fname = gcmd.get('FILENAME', '')
         if fname == '':
             raise gcmd.error(self._t('error_no_filename'))
 
@@ -2262,11 +2263,15 @@ class zmod_color:
             gcmd.respond_raw(self._t('no_response', json.dumps(response_data)))
 
     def find_t_code(self, filename):
+        channel_num = 0
+        bed_temp = 65.0
+
+        if filename.lower().endswith('.3mf')
+            return channel_num, bed_temp
+
         pattern = re.compile(r'^T([1-9]?[0-9])')
         pattern_bed = re.compile(r'^M(?:140|190)\s*S(\d+(?:\.\d+)?)')
 
-        channel_num = 0
-        bed_temp = 65.0
         found_t = False
         found_bed = False
 
