@@ -619,6 +619,7 @@ class zmod_color:
     def __init__(self, config):
         self.printer = config.get_printer()
         self.color_limit = 4
+        self.first_T = 0
 
         self.saved_extruder = -1
         self.saved_temperature = 0.0
@@ -1734,6 +1735,63 @@ class zmod_color:
         """Перцептуальное расстояние ΔE76"""
         return ((l1 - l2) ** 2 + (a1 - a2) ** 2 + (b1 - b2) ** 2) ** 0.5
 
+    def _parse_3mf_filament(self, file_path):
+        """Парсит 3MF архив и извлекает данные о филаментах из метаданных Orca/Bambu Slicer."""
+        from zipfile import ZipFile
+        import xml.etree.ElementTree as ET
+
+        sorted_colors = []
+        try:
+            with ZipFile(file_path, "r") as zip_ref:
+                file_list = zip_ref.namelist()
+
+                # Ищем файлы конфигурации плиты (OrcaSlicer/BambuStudio)
+                plate_cfgs = [f for f in file_list if f.startswith('Metadata/plate_') and f.endswith('.config')]
+                if not plate_cfgs and 'Metadata/slice_info.config' in file_list:
+                    plate_cfgs = ['Metadata/slice_info.config']
+
+                if plate_cfgs:
+                    # Читаем первый найденный файл плиты
+                    xml_data = zip_ref.read(plate_cfgs[0])
+                    root = ET.fromstring(xml_data)
+
+                    layer_lists = root.find(".//layer_filament_lists")
+                    if layer_lists is not None:
+                        first_layer = layer_lists.find("layer_filament_list")
+                        if first_layer is not None:
+                            fl_list = first_layer.attrib.get("filament_list", "").split()
+                            if fl_list:
+                                first_tool_idx = int(fl_list[0])  # Получаем 0-based индекс (0, 1...)
+                                self.first_T = first_tool_idx
+
+                    if layer_lists is None:
+                        for meta in root.findall(".//metadata"):
+                            if meta.attrib.get("key") == "extruder_type":
+                                val = meta.attrib.get("value", "").split()
+                                if val:
+                                    first_tool_idx = int(val[0])
+                                    self.first_T = first_tool_idx
+                                break
+
+
+                    # Извлекаем элементы <filament>
+                    for fil in root.findall(".//filament"):
+                        fil_id_str = fil.attrib.get("id")
+                        if fil_id_str:
+                            # 3MF использует 1-based ID (1, 2...), переводим в 0-based для экструдеров (T0, T1...)
+                            tool_idx = int(fil_id_str) - 1
+                            color = fil.attrib.get("color", "").strip()
+                            mat_type = fil.attrib.get("type", "").strip()
+                            sorted_colors.append((tool_idx, color, mat_type))
+
+                    if sorted_colors:
+                        sorted_colors.sort(key=lambda entry: entry[0])
+                        return sorted_colors
+        except Exception:
+            pass
+
+        return None
+
     def get_used_colors(self, gcmd):
         # Return (Success_bool, list_of_tuples)
         # list_of_tuples: (tool ID, color, material)
@@ -1746,7 +1804,16 @@ class zmod_color:
         if auto_assign == 1:
             scan_files_setting = 1
 
-        if scan_files_setting == 0 or fname.lower().endswith('.3mf'):
+        if fname.lower().endswith('.3mf'):
+            full_path = f"/usr/data/gcodes/{fname}"
+            sorted_colors = self._parse_3mf_filament(full_path)
+
+            if sorted_colors:
+                return (True, sorted_colors)
+
+            scan_files_setting = 0
+
+        if scan_files_setting == 0:
             tool_count = self.get_allowed_tool_count(gcmd)
             return (False, [(i, '', '') for i in range(tool_count)])
 
@@ -2283,7 +2350,7 @@ class zmod_color:
         bed_temp = 65.0
 
         if filename.lower().endswith('.3mf'):
-            return channel_num, bed_temp
+            return self.first_T, bed_temp
 
         pattern = re.compile(r'^T([1-9]?[0-9])')
         pattern_bed = re.compile(r'^M(?:140|190)\s*S(\d+(?:\.\d+)?)')
