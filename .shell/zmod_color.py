@@ -2231,6 +2231,12 @@ class zmod_color:
                     self.gcode.run_script_from_command("\n".join(script))
 
                     self.set_autopa(gcmd)
+                else:
+                    # Продувка всех используемых экструдеров (кроме стартового)
+                    save_variables = {} if self.save_variables == None else self.save_variables.allVariables
+                    if save_variables.get('purge_all_extruders', 0) != 0:
+                        for t_fiz in sorted(set(t - 1 for t in tools) - {t_start}):
+                            self.gcode.run_script_from_command(f"_T_PREPARE T={t_fiz} BED_TEMP={bed_temp:.1f} FULL=1")
 
                 script = [
                     f"_T_PREPARE T={t_start} BED_TEMP={bed_temp:.1f} FULL=0",
