@@ -2197,6 +2197,7 @@ class zmod_color:
                         "slotMaterialColor": f"#{slot_info['HEX']}"
                     })
 
+            self.gcode.run_script_from_command("M400")
             self.gcode.run_script_from_command(f"SAVE_VARIABLE VARIABLE=print_leveling VALUE={leveling}")
             self.gcode.run_script_from_command(f"SAVE_VARIABLE VARIABLE=print_autopa VALUE={autopa}")
 
