@@ -2907,7 +2907,8 @@ class zmod_color:
                 continue
 
             # Проверяем совпадение типа и цвета
-            if filament_cfg.get(f"ex{i}_filament_type") == target_type and filament_cfg.get(f"ex{i}_filament_color") == target_color:
+            if target_type is not None and target_color is not None and \
+               filament_cfg.get(f"ex{i}_filament_type") == target_type and filament_cfg.get(f"ex{i}_filament_color") == target_color:
                 # Проверяем наличие филамента по датчику
                 has_filament = False
                 if i < len(self.fd_sensors) and self.fd_sensors[i] is not None:
