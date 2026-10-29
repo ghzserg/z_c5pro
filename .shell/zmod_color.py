@@ -2258,12 +2258,16 @@ class zmod_color:
 
         with open(f"{self.virtual_sd.sdcard_dirname}/{filename}", 'r', encoding='utf-8', errors='ignore') as file:
             self.zmod._throttle_reset()
+            code_lines = 0
             for i, line in enumerate(file):
-                if i > 3000:
-                    break
                 if i % THROTTLE_LINES == 0:
                     self.zmod._throttle()
                 stripped_line = line.strip()
+                if not stripped_line or stripped_line[0] == ';':
+                    continue
+                code_lines += 1
+                if code_lines > 3000:
+                    break
 
                 if not found_t:
                     match = pattern.match(stripped_line)
@@ -3117,12 +3121,17 @@ class zmod_color:
                     if file.read(1) != b'\n':
                         file.readline()
                 self.zmod._throttle_reset()
+                code_lines = 0
                 for i, line in enumerate(file):
-                    if i > max_lines:
-                        break
                     if i % THROTTLE_LINES == 0:
                         self.zmod._throttle()
-                    match = pattern.match(line.strip())
+                    stripped_line = line.strip()
+                    if not stripped_line or stripped_line[:1] == b';':
+                        continue
+                    code_lines += 1
+                    if code_lines > max_lines:
+                        break
+                    match = pattern.match(stripped_line)
                     if match:
                         return int(match.group(1))
         except Exception:
