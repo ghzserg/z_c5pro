@@ -4,6 +4,7 @@ import json
 import requests
 import logging
 import subprocess
+import shutil
 
 FFCONFIG='/usr/data/firmwareRes/config/'
 FILE_CONFIG='/usr/data/config/mod_data/file.json'
@@ -13,6 +14,35 @@ THROTTLE_LINES = 32     # в циклах по строкам файла про�
 SKIP_LINE_FIRST_CHARS = frozenset('GMXYZEFgmxyzef')
 
 NO_EXCLUDE_FIELDS = ['temp', 'temp_manual', 'temp_wait']
+
+def atomic_write(path, text):
+    path = os.path.realpath(path)
+    directory = os.path.dirname(path) or '.'
+    tmp_path = path + '.tmp'
+    try:
+        with open(tmp_path, 'w', encoding='utf-8') as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        try:
+            shutil.copymode(path, tmp_path)
+        except OSError:
+            pass
+        os.replace(tmp_path, path)
+    except Exception:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        raise
+    try:
+        dir_fd = os.open(directory, os.O_RDONLY)
+        try:
+            os.fsync(dir_fd)
+        finally:
+            os.close(dir_fd)
+    except OSError:
+        pass
 
 DEFAULT_FILAMENT_SETTINGS = {
     "temp": 220,                        # Температура продувки перед печатью (базовая)
@@ -734,9 +764,8 @@ class zmod_color:
                             new_filament[key] = data[filament_name][key]
             new_data[filament_name] = new_filament
 
-        with open(TYPECONFIG, 'w', encoding='utf-8') as f:
-            json.dump(new_data, f, indent=4)
-            return new_data
+        atomic_write(TYPECONFIG, json.dumps(new_data, indent=4))
+        return new_data
 
     def get_filament_config(self, filament_type):
         try:
@@ -802,8 +831,7 @@ class zmod_color:
                 filament_cfg[prefix + "filament_color"] = 0
 
             new_json_str = json.dumps(filament_cfg, indent=3)
-            with open(file_path, 'w', encoding='utf-8') as file:
-                file.write(new_json_str + comment_block)
+            atomic_write(file_path, new_json_str + comment_block)
 
             return 200, {"code": 0, "msg": "OK"}
         except Exception as e:
@@ -2156,8 +2184,7 @@ class zmod_color:
             self.gcode.run_script_from_command(f"SAVE_VARIABLE VARIABLE=print_autopa VALUE={autopa}")
 
             try:
-                with open(FILE_CONFIG, 'w', encoding='utf-8') as file:
-                    json.dump(tools, file, indent=2)
+                atomic_write(FILE_CONFIG, json.dumps(tools, indent=2))
             except Exception as e:
                 if self.lang == 'ru':
                     msg = f"Ошибка перезаписи FILE_CONFIG: {str(e)}"
@@ -2754,8 +2781,7 @@ class zmod_color:
 
         try:
             new_json_str = json.dumps(z_cfg, indent=3)
-            with open(FFCONFIG + 'zoffset.json', 'w', encoding='utf-8') as file:
-                file.write(new_json_str + "\n/* Printer zoffset Config */")
+            atomic_write(FFCONFIG + 'zoffset.json', new_json_str + "\n/* Printer zoffset Config */")
         except Exception as e:
             if self.lang == 'ru':
                 msg = f"Ошибка записи в zoffset.json: {str(e)}"
@@ -2882,8 +2908,7 @@ class zmod_color:
                     tools[idx] = t_new + 1
 
             try:
-                with open(FILE_CONFIG, 'w', encoding='utf-8') as file:
-                    json.dump(tools, file, indent=2)
+                atomic_write(FILE_CONFIG, json.dumps(tools, indent=2))
             except Exception as e:
                 if self.lang == 'ru':
                     msg = f"Ошибка перезаписи FILE_CONFIG: {str(e)}"
@@ -3242,8 +3267,7 @@ class zmod_color:
                 extruder_cfg[key] = round(float(val), 6)
 
             new_json_str = json.dumps(extruder_cfg, indent=3)
-            with open(file_path, 'w', encoding='utf-8') as file:
-                file.write(new_json_str + "\n/* Printer Extruder Offset Config */")
+            atomic_write(file_path, new_json_str + "\n/* Printer Extruder Offset Config */")
             return True
         except Exception as e:
             if self.lang == 'ru':
