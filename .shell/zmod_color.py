@@ -558,6 +558,7 @@ class zmod_color:
         self.color_limit = 4
         self.file_colors = []
         self.file_plates = [1]      # Нарезанные платы 3mf; для обычного gcode [1]
+        self.file_colors_key = None # (файл, плата, mtime), для которых посчитан file_colors
 
         self.saved_extruder = -1
         self.saved_temperature = 0.0
@@ -1932,6 +1933,7 @@ class zmod_color:
         auto_assign_setting = 0
         if gcmd.get_int('ALLOWED_TOOL_COUNT', 0) == 0:
             colors_found, self.file_colors, self.file_plates = self.get_used_colors(gcmd, plate)
+            self.file_colors_key = self._file_colors_key(fname, plate)
             if colors_found:
                 auto_assign_setting = save_variables.get('auto_assign_colors', 0)
 
@@ -2170,6 +2172,13 @@ class zmod_color:
             for i in range(allowed_tool_count):
               tools += [gcmd.get_int(f"T{i}", int(default_values[i]))]
 
+            # Индексы TN, реально используемые в файле, берём из последнего SET_ZCOLOR,
+            used_idx = list(range(len(tools)))
+            if self.file_colors and self.file_colors_key == self._file_colors_key(fname, gcmd.get_int('PLATE', 1)):
+                known = sorted(set(fc[0] for fc in self.file_colors if 0 <= fc[0] < len(tools)))
+                if known:
+                    used_idx = known
+
             for i, tool in enumerate(tools):
                 if tool < 1 or tool > self.color_limit:
                     raise gcmd.error(self._t('error_tool', i, tool))
@@ -2227,6 +2236,7 @@ class zmod_color:
                     raise gcmd.error(
                         f"File starts with T{file_channel}, but only {len(tools)} tool(s) are mapped")
                 t_start = tools[file_channel] - 1
+                used_fiz = sorted(set(tools[i] - 1 for i in used_idx) | {t_start})
 
                 self.physical_pa = [99.0, 99.0, 99.0, 99.0]
 
@@ -2260,8 +2270,8 @@ class zmod_color:
                         gcmd.respond_info("Auto PA: Starting automatic PA calibration before printing...")
 
                     script = []
-                    for idx, tool_val in enumerate(tools):
-                        script.append(f"_T_TEST_PA T_FIZ={tool_val - 1}")
+                    for t_fiz in used_fiz:
+                        script.append(f"_T_TEST_PA T_FIZ={t_fiz}")
                     script.append("M400")
                     self.gcode.run_script_from_command("\n".join(script))
 
@@ -2270,7 +2280,7 @@ class zmod_color:
                     # Продувка всех используемых экструдеров (кроме стартового)
                     save_variables = {} if self.save_variables == None else self.save_variables.allVariables
                     if save_variables.get('purge_all_extruders', 0) != 0:
-                        for t_fiz in sorted(set(t - 1 for t in tools) - {t_start}):
+                        for t_fiz in [t for t in used_fiz if t != t_start]:
                             self.gcode.run_script_from_command(f"_T_PREPARE T={t_fiz} BED_TEMP={bed_temp:.1f} FULL=1")
 
                 script = [
@@ -2280,6 +2290,13 @@ class zmod_color:
                 self.gcode.run_script_from_command("\n".join(script))
         else:
             gcmd.respond_raw(self._t('no_response', json.dumps(response_data)))
+
+    def _file_colors_key(self, fname, plate):
+        try:
+            mtime = os.path.getmtime(f"/usr/data/gcodes/{fname}")
+        except OSError:
+            mtime = None
+        return (fname, plate, mtime)
 
     def find_t_code(self, filename):
         channel_num = 0
