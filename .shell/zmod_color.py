@@ -2577,6 +2577,7 @@ class zmod_color:
 
             script = [
                 "_DISABLE_SENSOR",
+                "G92 E0",
                 f"G1 E{tube:.3f} F240",
                 "M400",
                 "_ENABLE_SENSOR",
