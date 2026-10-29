@@ -12,7 +12,7 @@ MAX_COLOR=98
 THROTTLE_LINES = 32     # в циклах по строкам файла проверять время (zmod._throttle) раз в N строк
 SKIP_LINE_FIRST_CHARS = frozenset('GMXYZEFgmxyzef')
 
-NO_EXCLUDE_FIELDS = ['temp']
+NO_EXCLUDE_FIELDS = ['temp', 'temp_manual', 'temp_wait']
 
 DEFAULT_FILAMENT_SETTINGS = {
     "temp": 220,                        # Температура продувки перед печатью (базовая)
@@ -722,7 +722,7 @@ class zmod_color:
             if filament_name not in existing_file_data:
                 this_filament = data[filament_name]
                 for key in this_filament.keys():
-                    if key in NO_EXCLUDE_FIELDS or this_filament[key] != new_data['default'][key]:
+                    if key in NO_EXCLUDE_FIELDS or key not in new_data['default'] or this_filament[key] != new_data['default'][key]:
                         new_filament[key] = this_filament[key]
             else:
                 this_filament = existing_file_data[filament_name]
