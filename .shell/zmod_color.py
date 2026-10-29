@@ -764,7 +764,15 @@ class zmod_color:
                             new_filament[key] = data[filament_name][key]
             new_data[filament_name] = new_filament
 
-        atomic_write(TYPECONFIG, json.dumps(new_data, indent=4))
+        # Пишем только при изменении
+        new_text = json.dumps(new_data, indent=4)
+        try:
+            with open(TYPECONFIG, 'r', encoding='utf-8') as f:
+                old_text = f.read()
+        except OSError:
+            old_text = None
+        if new_text != old_text:
+            atomic_write(TYPECONFIG, new_text)
         return new_data
 
     def get_filament_config(self, filament_type):
