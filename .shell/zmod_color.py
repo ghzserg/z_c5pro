@@ -2286,6 +2286,7 @@ class zmod_color:
 
                 script = [
                     f"_T_PREPARE T={t_start} BED_TEMP={bed_temp:.1f} FULL=0",
+                    "M400",
                     f"SDCARD_PRINT_FILE FILENAME=\"{fname}\""
                 ]
                 self.gcode.run_script_from_command("\n".join(script))
