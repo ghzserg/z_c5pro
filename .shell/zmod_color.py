@@ -2711,12 +2711,12 @@ class zmod_color:
             ]
         script += ["_ENABLE_SENSOR",
             "G1 X250 F6000",                              # Идем к резинке
-            f"_WIPER X={slot_config.get('wiper_x'):.3f} Y={slot_config.get('wiper_y'):.3f} Z={wiper_z:.3f} START=1",
+            f"_WIPER X={slot_config.get('wiper_x'):.3f} Y={slot_config.get('wiper_y'):.3f} Z={wiper_z:.3f} DROP={float(slot_config.get('filament_drop_length', 0))} START=1",
             "M114"
         ]
         if float(slot_config.get('filament_drop_length', 0)) == 0.0:
             script.append(f"_WAIT_TEMP T={t} EXTRUDER_TEMP={slot_config.get('temp'):.3f} BED_TEMP=0 FROM=_T_PREPARE")
-            script.append(f"_WIPER X={slot_config.get('wiper_x'):.3f} Y={slot_config.get('wiper_y'):.3f} Z={wiper_z:.3f} START=0")
+            script.append(f"_WIPER X={slot_config.get('wiper_x'):.3f} Y={slot_config.get('wiper_y'):.3f} Z={wiper_z:.3f} DROP={float(slot_config.get('filament_drop_length', 0))} START=0")
 
         self.gcode.run_script_from_command("\n".join(script))
 
@@ -3431,9 +3431,9 @@ class zmod_color:
                     "G1 E-5 F240",
                     "M400",
                     "G1 X250 F6000",
-                    f"_WIPER X={wiper_x:.3f} Y={wiper_y:.3f} Z={wiper_z:.3f} START=1",
+                    f"_WIPER X={wiper_x:.3f} Y={wiper_y:.3f} Z={wiper_z:.3f} DROP={float(slot_config.get('filament_drop_length', 0))} START=1",
                     f"_WAIT_TEMP T={t_idx} EXTRUDER_TEMP={wait_temp:.3f} DELTA_T=0.5 BED_TEMP={bed_temp:.1f} DELTA_BED=0.1 FROM=_T_CALIBRATE_EXTRUDERS",
-                    f"_WIPER X={wiper_x:.3f} Y={wiper_y:.3f} Z={wiper_z:.3f} START=0",
+                    f"_WIPER X={wiper_x:.3f} Y={wiper_y:.3f} Z={wiper_z:.3f} DROP={float(slot_config.get('filament_drop_length', 0))} START=0",
                     "M106 P1 S0",
                     f"G1 Z{safe_z:.2f} F1200",
                     "M400",
