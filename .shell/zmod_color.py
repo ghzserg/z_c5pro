@@ -1122,9 +1122,9 @@ class zmod_color:
             self.active_tool_id = -1
             if gcmd:
                 if self.lang == 'ru':
-                    gcmd.respond_raw(f"// Каретка: -1")
+                    gcmd.respond_raw("// Каретка: -1")
                 else:
-                    gcmd.respond_raw(f"// Head: -1")
+                    gcmd.respond_raw("// Head: -1")
             return -1
 
         # Если один не дома, и именно он на голове — возвращаем его номер (0-3)
@@ -1276,7 +1276,7 @@ class zmod_color:
 
         # Объезжаем экструдеры
         if saved_gcode_x > 250.00:
-            self.gcode.run_script_from_command(f"G1 X250 F6000\nM400")
+            self.gcode.run_script_from_command("G1 X250 F6000\nM400")
             self.gcode.run_script_from_command(f"G1 Y{saved_gcode_y:.3f} F6000\nM400")
         self.gcode.run_script_from_command(f"G1 X{saved_gcode_x:.3f} F6000\nM400\nG1 Y{saved_gcode_y:.3f} F6000\nM400\nG1 Z{saved_gcode_z:.3f} F500\nM400")
 
@@ -1646,7 +1646,7 @@ class zmod_color:
 
             if silent == 0:
                 gcmd.respond_raw("// action:prompt_button_group_end")
-                gcmd.respond_raw(f"// action:prompt_footer_button Ok|RESPOND TYPE=command MSG=action:prompt_end")
+                gcmd.respond_raw("// action:prompt_footer_button Ok|RESPOND TYPE=command MSG=action:prompt_end")
                 gcmd.respond_raw(f"// action:prompt_footer_button {self._t('reset_colors')}|RESET_ZCOLOR")
                 gcmd.respond_raw("// action:prompt_show")
         else:
@@ -2475,7 +2475,7 @@ class zmod_color:
         if hide == 0:
             gcmd.respond_raw(f"// action:prompt_footer_button {self._t('cancel')}|RESPOND TYPE=command MSG=action:prompt_end")
         else:
-            gcmd.respond_raw(f"// action:prompt_footer_button OK|RESPOND TYPE=command MSG=action:prompt_end")
+            gcmd.respond_raw("// action:prompt_footer_button OK|RESPOND TYPE=command MSG=action:prompt_end")
         gcmd.respond_raw("// action:prompt_show")
 
     def cmd_CHANGE_ZCOLOR(self, gcmd):
@@ -2783,7 +2783,7 @@ class zmod_color:
                 msg = f"Error reading extruder.json: {str(e)}"
             raise gcmd.error(msg)
 
-        move_status = self.gcode_move.get_status(self.printer.get_reactor().monotonic())
+        # move_status = self.gcode_move.get_status(self.printer.get_reactor().monotonic())
         current_klipper_offset_z = self.gcode_move.homing_position[2]
 
         if z_param is not None:
@@ -2824,7 +2824,7 @@ class zmod_color:
         gcmd.respond_raw(f"info T{t}")
 
         try:
-            self.gcode.run_script_from_command(f"_B_CHANGE_FILAMENT")
+            self.gcode.run_script_from_command("_B_CHANGE_FILAMENT")
         except Exception as e:
             if self.lang == 'ru':
                 msg = f"!! Ошибка при смене филамента: {str(e)}\nВстаю на паузу"
@@ -3418,7 +3418,7 @@ class zmod_color:
                 fan_speed  = t_cfg.get('fan_speed', 255.0)
 
                 script = [
-                    f"G1 X250 F12000",
+                    "G1 X250 F12000",
                     f"G1 Y{trash_y:.3f} F24000",
                     f"G1 X{trash_x:.3f} F2400",
                     "M400",
