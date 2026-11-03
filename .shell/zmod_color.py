@@ -5,6 +5,8 @@ import requests
 import logging
 import subprocess
 import shutil
+import threading
+import time
 
 FFCONFIG='/usr/data/firmwareRes/config/'
 FILE_CONFIG='/usr/data/config/mod_data/file.json'
@@ -567,6 +569,7 @@ class zmod_color:
         self.physical_pa = [99.0, 99.0, 99.0, 99.0]     # PA физических экструдеров
 
         self.display = config.getboolean('display', True)
+        self.orca_lanes = config.getboolean('orca_lanes', True)
         self.lang = 'en'
         self.plate_z = config.getfloat('plate_z', 0.061)        # Толщина платы по Z
         self.retry = config.getint('retry', 5)        # Сколько делать повторов при ошибке
@@ -681,6 +684,9 @@ class zmod_color:
         # Инициализация датчиков наличия и движения филамента для ex0-ex3
         self.fd_sensors = [self.printer.lookup_object(f"filament_switch_sensor fd_ex{i}", None) for i in range(4)]
         self.fm_sensors = [self.printer.lookup_object(f"filament_motion_sensor fm_ex{i}", None) for i in range(4)]
+
+        if not self.display:
+            self._publish_lanes({i + 1: (m, '#' + h) for i, (m, h, _) in enumerate(self._slot_states())})
 
     def temp_z_offset(self):
         if self.macro_obj is not None:
@@ -841,10 +847,38 @@ class zmod_color:
 
             new_json_str = json.dumps(filament_cfg, indent=3)
             atomic_write(file_path, new_json_str + comment_block)
+            if not self.display and 1 <= slot_id <= self.color_limit:
+                m, h, _ = self._slot_states()[slot_id - 1]
+                self._publish_lanes({slot_id: (m, '#' + h)})
 
             return 200, {"code": 0, "msg": "OK"}
         except Exception as e:
             return None, {"code": -1, "msg": f"Local save error: {str(e)}"}
+
+    # Слоты -> Moonraker lane_data для синхронизации OrcaSlicer (без родного экрана)
+    def _publish_lanes(self, slots):
+        save_variables = getattr(self, 'save_variables', None)
+        save_variables = {} if save_variables == None else save_variables.allVariables
+        if not self.orca_lanes or save_variables.get('helix', 0) == 1:
+            return
+
+        def worker():
+            url = 'http://127.0.0.1:7125/server/database/item'
+            for attempt in range(12):
+                try:
+                    for zslot, (ztype, zcolor) in slots.items():
+                        key = f'lane{zslot - 1}'
+                        if ztype in ('', '?'):
+                            requests.delete(url, params={'namespace': 'lane_data', 'key': key}, timeout=5)
+                        else:
+                            requests.post(url, json={'namespace': 'lane_data', 'key': key, 'value': {
+                                'lane': str(zslot - 1), 'material': ztype, 'color': zcolor.upper(), 'name': ztype}},
+                                timeout=5).raise_for_status()
+                    return
+                except Exception as e:
+                    logging.info(f"zmod_color: lane_data: {e}")
+                    time.sleep(5)
+        threading.Thread(target=worker, daemon=True).start()
 
     def _get_active_mesh_profile(self):
         try:
