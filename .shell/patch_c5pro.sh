@@ -22,6 +22,9 @@ fix_firmwareExe "b36afd3cb11ae6b9ba3cc2f0d1e79267" 2985136 0 # 2.0.0 Pro Tiger
 fix_firmwareExe "d6a0d7c31eb16e0520e25c67a8b6221a" 6681680 0 # 2.0.0
 fix_firmwareExe "01c4480248a21fd33528ae0eeb38b5a5" 6683536 0 # 2.0.0 Pro
 
+grep -q zmod_klipper_c5 /usr/data/zmod/klipper/.git/config || rm -rf /usr/data/zmod/klipper/
+mkdir -p /usr/data/zmod/klipper/
+
 if grep -q "klipper_c5 = 1" ${MOD_CONF}/mod_data/variables.cfg; then
     mount --bind /usr/data/zmod/zmod/.shell/klipperDaemon /usr/prog/klipper/klipperDaemon
 fi
