@@ -4,8 +4,11 @@
 #
 
 PYTHON=/usr/prog/Python-3.8.2/bin/python3
-KLIPPER=/usr/data/zmod/klipper/klippy/klippy.py
-#KLIPPER_CONF=/usr/prog/klipper/runConfig/printer.cfg
+
+KLIPPER=/usr/prog/klipper/klippy/klippy.py
+grep -q zmod_klipper_c5 /usr/data/zmod/klipper/.git/config && KLIPPER=/usr/data/zmod/klipper/klippy/klippy.py || rm -rf /usr/data/zmod/klipper/
+mkdir -p /usr/data/zmod/klipper/
+
 KLIPPER_CONF=/usr/data/config/printer.cfg
 KLIPPER_LOG=/usr/data/logs/printer.log
 PID_FILE=/run/klipper.pid
