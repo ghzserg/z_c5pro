@@ -4,7 +4,7 @@
 #
 
 PYTHON=/usr/prog/Python-3.8.2/bin/python3
-KLIPPER=/usr/data/zmod/klipper/klippy/klippy.py
+KLIPPER=/usr/data/zmod/klipper/klippy.py
 #KLIPPER_CONF=/usr/prog/klipper/runConfig/printer.cfg
 KLIPPER_CONF=/usr/data/config/printer.cfg
 KLIPPER_LOG=/usr/data/logs/printer.log
