@@ -1487,7 +1487,19 @@ class zmod_color:
             else:
                 gcmd.respond_raw(f"// Warning: Failed to grab T{t_index} ({last_error_msg}). Retrying...")
 
-            self.gcode.run_script_from_command("MOTOR_RELEASE\nG1 X250 F4800\nMOTOR_STOP\nM400")
+            self.gcode.run_script_from_command("\n".join([
+                "SET_VELOCITY_LIMIT ACCEL=8000",
+                "_SET_GCODE_OFFSET_FAST X=0 Y=0 MOVE=1 MOVE_SPEED=100 FROM=_T_IN",
+                "G1 X250 F30000",
+                f"G1 Y{park_y:.3f}",
+                f"G1 X{park_x - 10.0:.3f}",
+                f"G1 X{park_x:.3f} F5400",
+                "MOTOR_RELEASE",
+                "G1 X250 F4800",
+                "MOTOR_STOP",
+                "SET_VELOCITY_LIMIT ACCEL=20000",
+                "M400"
+            ]))
 
         if not is_absolute:
             self.gcode.run_script_from_command("G91")
