@@ -3218,7 +3218,9 @@ class zmod_color:
         final_pa = sum(pass_minimums) / len(pass_minimums)
         if save == 1:
             self.physical_pa[t_fiz] = round(final_pa, 4)
-        gcmd.respond_info(f"PA T{t_fiz}: {self.physical_pa[t_fiz]:.4f}")
+            gcmd.respond_info(f"PA T{t_fiz}: {self.physical_pa[t_fiz]:.4f}")
+        else:
+            self.gcode.run_script_from_command("_SHOW_MSG TITLE=PA MSG=\"PA T{t_fiz}: {round(final_pa, 4)}\"")
 
     def cmd_T_PREPARE_RESTORE(self, gcmd):
         start_print = gcmd.get_int('START_PRINT', 0)
