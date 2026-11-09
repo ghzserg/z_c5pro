@@ -567,6 +567,12 @@ class zmod_color:
 
         self.active_tool_id = -2
         self.physical_pa = [99.0, 99.0, 99.0, 99.0]     # PA физических экструдеров
+        self.pa_min   = config.getfloat('pa_min',   0.010, minval=0.01)
+        self.pa_max   = config.getfloat('pa_max',   0.040, minval=0.02, maxval=0.100)
+        self.pa_count = config.getint('pa_count',   3,     minval=1, maxval=10)
+        if self.pa_max < self.pa_min:
+            raise config.error(
+                f"zmod_color: pa_max ({self.pa_max}) must be >= pa_min ({self.pa_min})")
 
         self.display = config.getboolean('display', True)
         self.orca_lanes = config.getboolean('orca_lanes', True)
@@ -3100,16 +3106,43 @@ class zmod_color:
         self.gcode.run_script_from_command("\n".join(script))
 
         # Матрица тестовых значений и Y-координат
-        test_values = [0.010, 0.020, 0.015, 0.035, 0.025, 0.030, 0.040]
-        y_starts = [50.0, 55.0, 60.0, 65.0, 70.0, 75.0, 80.0]
+        #test_values = [0.010, 0.020, 0.015, 0.035, 0.025, 0.030, 0.040]
+        #y_starts = [50.0, 55.0, 60.0, 65.0, 70.0, 75.0, 80.0]
+
+        # Сортированный ряд: pa_min, pa_min+0.005, ..., pa_max (шаг фиксирован)
+        step_pa = 0.005
+        sorted_vals = []
+        v = self.pa_min
+        while v <= self.pa_max + 1e-9:
+            sorted_vals.append(round(v, 4))
+            v += step_pa
+        N = len(sorted_vals)
+
+        # Зигзаг (один выше, один ниже), последним — максимум.
+        # Для N=7: [0, 2, 1, 5, 3, 4, 6] → 0.010, 0.020, 0.015, 0.035, 0.025, 0.030, 0.040
+        if N == 1:
+            order = [0]
+        elif N == 2:
+            order = [0, 1]
+        elif N == 3:
+            order = [0, 2, 1]
+        elif N == 4:
+            order = [0, 2, 1, 3]
+        else:
+            order = [0, 2, 1, N - 2]
+            order += list(range(3, N - 2))
+            order.append(N - 1)
+
+        test_values = [sorted_vals[i] for i in order]
+        y_starts = [50.0 + i * 5.0 for i in range(N)]
 
         pass_minimums = []
 
-        for pass_num in range(3):
+        for pass_num in range(self.pa_count):
             if self.lang == 'ru':
-                gcmd.respond_info(f"Проход {pass_num + 1}/3...")
+                gcmd.respond_info(f"Проход {pass_num + 1}/{self.pa_count}...")
             else:
-                gcmd.respond_info(f"Pass {pass_num + 1}/3...")
+                gcmd.respond_info(f"Pass {pass_num + 1}/{self.pa_count}...")
             min_success = None
 
             for i, val in enumerate(test_values):
@@ -3174,7 +3207,6 @@ class zmod_color:
         final_pa = sum(pass_minimums) / len(pass_minimums)
         self.physical_pa[t_fiz] = round(final_pa, 4)
         gcmd.respond_info(f"PA T{t_fiz}: {self.physical_pa[t_fiz]:.4f}")
-
 
     def cmd_T_PREPARE_RESTORE(self, gcmd):
         start_print = gcmd.get_int('START_PRINT', 0)
