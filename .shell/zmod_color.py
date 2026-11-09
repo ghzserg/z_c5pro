@@ -3180,6 +3180,11 @@ class zmod_color:
         start_print = gcmd.get_int('START_PRINT', 0)
         if start_print not in (0, 1):
             raise gcmd.error(f"START_PRINT must be 0 or 1, got {start_print}")
+
+        # Если печать с родного экрана и не было сопоставления цветов, то выходим
+        if start_print == 1 and not os.path.exists(FILE_CONFIG):
+            return
+
         temp = gcmd.get_float('TEMP', 0.0, minval=0.)
         if start_print == 1 and temp <= 0.:
             raise gcmd.error("TEMP is required when START_PRINT=1")
