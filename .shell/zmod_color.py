@@ -3220,7 +3220,7 @@ class zmod_color:
             self.physical_pa[t_fiz] = round(final_pa, 4)
             gcmd.respond_info(f"PA T{t_fiz}: {self.physical_pa[t_fiz]:.4f}")
         else:
-            self.gcode.run_script_from_command("_SHOW_MSG TITLE=PA MSG=\"PA T{t_fiz}: {round(final_pa, 4)}\"")
+            self.gcode.run_script_from_command(f"_SHOW_MSG TITLE=PA MSG=\"PA T{t_fiz}: {round(final_pa, 4)}\"")
 
     def cmd_T_PREPARE_RESTORE(self, gcmd):
         start_print = gcmd.get_int('START_PRINT', 0)
