@@ -565,6 +565,15 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('flui
             "visible": true
         },
         {
+            "alias": "",
+            "categoryId": "244d667b-c410-4e01-9bf1-e8e0b9deabe2",
+            "color": "",
+            "disabledWhilePrinting": true,
+            "name": "test_pa",
+            "order": 11,
+            "visible": true
+        },
+        {
             "alias": "Калибровка ремней",
             "categoryId": "244d667b-c410-4e01-9bf1-e8e0b9deabe2",
             "color": "",
@@ -1001,6 +1010,14 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('main
                "color" : "group",
                "name" : "T_INFO",
                "pos" : 9,
+               "showInPause" : false,
+               "showInPrinting" : false,
+               "showInStandby" : true
+            },
+            {
+               "color" : "group",
+               "name" : "TEST_PA",
+               "pos" : 10,
                "showInPause" : false,
                "showInPrinting" : false,
                "showInStandby" : true
@@ -1899,6 +1916,9 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('gupp
             "hidden": true
         },
         "T_INFO": {
+            "hidden": true
+        },
+        "TEST_PA": {
             "hidden": true
         },
         "UNLOAD_FILAMENT": {

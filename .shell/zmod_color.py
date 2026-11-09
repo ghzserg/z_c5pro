@@ -3061,8 +3061,19 @@ class zmod_color:
         if t_fiz is None or t_fiz < 0 or t_fiz > 3:
             raise gcmd.error("Error: T_FIZ parameter is required and must be between 0 and 3")
 
+        pa_min = gcmd.get_float('PA_MIN', self.pa_min)
+        pa_max = gcmd.get_float('PA_MAX', self.pa_max)
+        pa_count = gcmd.get_int('PA_COUNT', self.pa_count)
+        if pa_min < 0.01 or pa_max > 0.1 or pa_min >= pa_max or not (1 <= pa_count <= 10):
+            raise gcmd.error("Invalid parameters: PA_MIN must be >= 0.01, PA_MAX must be <= 0.1, PA_MIN must be less than PA_MAX, and PA_COUNT must be between 1 and 10")
+
+        save = gcmd.get_int('SAVE', 1)
+
+        if t_fiz is None or t_fiz < 0 or t_fiz > 3:
+            raise gcmd.error("Error: T_FIZ parameter is required and must be between 0 and 3")
+
         # Проверяем, есть ли уже посчитанный PA для этого физического экструдера
-        if self.physical_pa[t_fiz] != 99.0:
+        if self.physical_pa[t_fiz] != 99.0 and save == 1:
             gcmd.respond_info(f"PA T{t_fiz}: {self.physical_pa[t_fiz]:.4f}")
             return
 
@@ -3112,8 +3123,8 @@ class zmod_color:
         # Сортированный ряд: pa_min, pa_min+0.005, ..., pa_max (шаг фиксирован)
         step_pa = 0.005
         sorted_vals = []
-        v = self.pa_min
-        while v <= self.pa_max + 1e-9:
+        v = pa_min
+        while v <= pa_max + 1e-9:
             sorted_vals.append(round(v, 4))
             v += step_pa
         N = len(sorted_vals)
@@ -3138,11 +3149,11 @@ class zmod_color:
 
         pass_minimums = []
 
-        for pass_num in range(self.pa_count):
+        for pass_num in range(pa_count):
             if self.lang == 'ru':
-                gcmd.respond_info(f"Проход {pass_num + 1}/{self.pa_count}...")
+                gcmd.respond_info(f"Проход {pass_num + 1}/{pa_count}...")
             else:
-                gcmd.respond_info(f"Pass {pass_num + 1}/{self.pa_count}...")
+                gcmd.respond_info(f"Pass {pass_num + 1}/{pa_count}...")
             min_success = None
 
             for i, val in enumerate(test_values):
@@ -3205,7 +3216,8 @@ class zmod_color:
 
         # Среднее арифметическое минимальных успешных значений из каждого прохода
         final_pa = sum(pass_minimums) / len(pass_minimums)
-        self.physical_pa[t_fiz] = round(final_pa, 4)
+        if save == 1:
+            self.physical_pa[t_fiz] = round(final_pa, 4)
         gcmd.respond_info(f"PA T{t_fiz}: {self.physical_pa[t_fiz]:.4f}")
 
     def cmd_T_PREPARE_RESTORE(self, gcmd):
