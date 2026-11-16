@@ -2667,6 +2667,7 @@ class zmod_color:
         nocolor = gcmd.get_int('NOCOLOR', 0)
         hide = gcmd.get_int('HIDE', 0)
         zslot = gcmd.get_int('SLOT', 0)
+        bool_temp_wait = gcmd.get_int('TEMP_WAIT', 0)
         if zslot < 1 or zslot > self.color_limit:
             raise gcmd.error(self._t('error_slot'))
 
@@ -2712,13 +2713,17 @@ class zmod_color:
             else:
                 tube = slot_config.get('filament_tube_length')
 
+            if bool_temp_wait == 1:
+                temp_wait = slot_config.get('temp_wait')
+            else:
+                temp_wait = 0.0
             script = [
                 "_DISABLE_SENSOR",
                 "G92 E0",
                 f"G1 E{tube:.3f} F240",
                 "M400",
                 "_ENABLE_SENSOR",
-                f"M104.1 S{slot_config.get('temp_wait'):.3f} T{zslot-1}",
+                f"M104.1 S{temp_wait:.3f} T{zslot-1}",
                 "_T_OUT NO_Z=0"
             ]
             self.gcode.run_script_from_command("\n".join(script))
@@ -3532,7 +3537,7 @@ class zmod_color:
             try:
                 t_cfg      = self.get_filament_config_t(t_idx)
                 purge_temp = t_cfg.get('temp', 240)
-                wait_temp  = t_cfg.get('temp_wait', 140)
+                temp_wait  = t_cfg.get('temp_wait', 140)
                 trash_x    = t_cfg.get('trash_x',   275.0)
                 trash_y    = t_cfg.get('trash_y',   254.0)
                 wiper_x    = t_cfg.get('wiper_x',   266.50)
@@ -3556,7 +3561,7 @@ class zmod_color:
                     "M400",
                     "G1 X250 F6000",
                     f"_WIPER X={wiper_x:.3f} Y={wiper_y:.3f} Z={wiper_z:.3f} DROP={float(t_cfg.get('filament_drop_length', 0))} CALIBRATE=1 START=1",
-                    f"_WAIT_TEMP T={t_idx} EXTRUDER_TEMP={wait_temp:.3f} DELTA_T=0.5 BED_TEMP={bed_temp:.1f} DELTA_BED=0.1 FROM=_T_CALIBRATE_EXTRUDERS",
+                    f"_WAIT_TEMP T={t_idx} EXTRUDER_TEMP={temp_wait:.3f} DELTA_T=0.5 BED_TEMP={bed_temp:.1f} DELTA_BED=0.1 FROM=_T_CALIBRATE_EXTRUDERS",
                     f"_WIPER X={wiper_x:.3f} Y={wiper_y:.3f} Z={wiper_z:.3f} DROP={float(t_cfg.get('filament_drop_length', 0))} CALIBRATE=1 START=0",
                     "M106 P1 S0",
                     f"G1 Z{safe_z:.2f} F1200",
