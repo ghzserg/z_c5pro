@@ -2307,6 +2307,7 @@ class zmod_color:
                 else:
                     gcmd.respond_raw(self._t('printing_error', response_data2))
             else:
+                is_3mf = fname.lower().endswith('.3mf')
                 fname = self.zmod._extract_3mf_gcode(fname, gcmd)
                 try:
                     file_channel, bed_temp = self.find_t_code(fname)
@@ -2368,7 +2369,10 @@ class zmod_color:
                     "M400",
                     f"SDCARD_PRINT_FILE FILENAME=\"{fname}\""
                 ]
-                self.gcode.run_script_from_command("\n".join(script))
+                if is_3mf:
+                    self.zmod.update_metadata_async(fname, "\n".join(script))
+                else:
+                    self.gcode.run_script_from_command("\n".join(script))
         else:
             gcmd.respond_raw(self._t('no_response', json.dumps(response_data)))
 
