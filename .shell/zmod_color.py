@@ -630,6 +630,7 @@ class zmod_color:
         self.gcode.register_command('_T_RESTORE', self.cmd_T_RESTORE)     # Восстановить сохраненный экструдер
         self.gcode.register_command('_T_PREPARE', self.cmd_T_PREPARE)     # Прогреть и подготовить экструдер
         self.gcode.register_command('_T_SET_GCODE_OFFSET', self.cmd_T_SET_GCODE_OFFSET) # Сохранить Z-Offset
+        self.gcode.register_command('_T_RESET_Z_OFFSET', self.cmd_T_RESET_Z_OFFSET) # Сбросить Z-Offset
         self.gcode.register_command('_T_CHANGE_FILAMENT', self.cmd_T_CHANGE_FILAMENT)     # Сменить филамент
         self.gcode.register_command('_T_FIND_ANALOG', self.cmd_T_FIND_ANALOG)   # Поиск аналогичного прутка
         self.gcode.register_command('_T_TEST_PA', self.cmd_TEST_PA)       # Подбор PA
@@ -1348,6 +1349,34 @@ class zmod_color:
 
         self.saved_extruder = -1
         self.saved_temperature = 0.0
+
+
+    def cmd_T_RESET_Z_OFFSET(self, gcmd):
+        active_t = self._get_active_extruder(gcmd)
+        if active_t < 0:
+            if self.lang == 'ru':
+                raise gcmd.error("Экструдер не установлен в каретку")
+            raise gcmd.error("No extruder installed in the carriage")
+
+        try:
+            with open(FFCONFIG + 'extruder.json', 'r', encoding='utf-8') as file:
+                raw = file.read()
+                clean = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
+                ext_cfg = json.loads(clean)
+
+            tn_z = float(ext_cfg[f"t{active_t}_offset_z"])
+            z_station_pos = float(ext_cfg.get("z_station_pos", -1.78))
+        except (OSError, ValueError, KeyError) as e:
+            if self.lang == 'ru':
+                raise gcmd.error(f"Ошибка чтения extruder.json: {str(e)}")
+            raise gcmd.error(f"Error reading extruder.json: {str(e)}")
+
+        calc_offset_z = tn_z - z_station_pos + self.plate_z + self.temp_z_offset()
+
+        self.gcode.run_script_from_command(
+            f"_SET_GCODE_OFFSET_FAST Z={calc_offset_z:.3f} MOVE=1 MOVE_SPEED=40 FROM=_T_RESET_Z_OFFSET\n"
+            f"_T_SET_GCODE_OFFSET Z={calc_offset_z:.3f}"
+        )
 
     # Вставить экструдер в голову
     def cmd_T_IN(self, gcmd):
