@@ -1955,7 +1955,6 @@ f1fc655d0bd79b3c629d61518938ee5f  ./usr/prog/klipper/docs/Using_PWM_Tools.md
 2a064af5963abef271ded166a94c3a03  ./usr/prog/klipper/.github/workflows/reviewer-needed-label.yaml
 1de48a324798328af79dd2b318900ecb  ./usr/prog/klipper/.github/workflows/stale-issue-bot.yaml
 012bcdef32d0d868c4f1efb19c685437  ./usr/prog/klipper/.gitignore
-773741f6a2df3231cd52a3f441014037  ./usr/prog/klipper/klipperDaemon
 87dd29a569574bf0d3b1a5a4ab15217c  ./usr/prog/klipper/klipper_pri.sh
 8f70a86222bcecb6e3654885a444b7c5  ./usr/prog/klipper/klippy/chelper/c_helper.so
 90b6c0f9aac26102ba0795e4c489874d  ./usr/prog/klipper/klippy/chelper/compiler.h
@@ -2027,7 +2026,6 @@ b89ab6a39bcec4738c980be9a62de39c  ./usr/prog/klipper/klippy/extras/ds18b20.py
 8b0dedd50060ab3cf06e10c03f1f93e2  ./usr/prog/klipper/klippy/extras/duplicate_pin_override.py
 8ae6ffa025ce24e9b89ae5ce4b165c1a  ./usr/prog/klipper/klippy/extras/endstop_phase.py
 cfc565b1fc7140cadd053330f6349a05  ./usr/prog/klipper/klippy/extras/error_mcu.py
-b708fdeb1dcc24d31e79af1b49947465  ./usr/prog/klipper/klippy/extras/e_stop.py
 84b646f300f9f0f022bb11df678b2360  ./usr/prog/klipper/klippy/extras/exclude_object.py
 be1a0d5c33cbddd3d405a00f99cd3fef  ./usr/prog/klipper/klippy/extras/extruder_stepper.py
 3b82a0205e18bf9725d4237949a4b183  ./usr/prog/klipper/klippy/extras/fan_generic.py
@@ -2035,10 +2033,8 @@ f7fdf5a251ef58f427bad00264f01434  ./usr/prog/klipper/klippy/extras/ff_eddy.py
 ea71517d5d991514964cb6b4fe879ddb  ./usr/prog/klipper/klippy/extras/filament_motion_sensor.py
 b39a1fbb029b5cab875e33f6e91de3c4  ./usr/prog/klipper/klippy/extras/firmware_retraction.py
 5d223738cb6465b6cec0c2e7e4a35b18  ./usr/prog/klipper/klippy/extras/force_move.py
-ec9f1f40d8ac9369c1626b8581c38bd6  ./usr/prog/klipper/klippy/extras/gcode_arcs.py
 dd57ed32fcd1fd3cd0805258a4b5343c  ./usr/prog/klipper/klippy/extras/gcode_button.py
 0ef33ddec198176d6d091d8c7c9d104b  ./usr/prog/klipper/klippy/extras/gcode_macro.py
-8c2f314b9f2e77464b9672e9cc28e1e3  ./usr/prog/klipper/klippy/extras/gcode_move.py
 d6ba636a5d7dfaeddabbea99c09aef6d  ./usr/prog/klipper/klippy/extras/hall_filament_width_sensor.py
 ed5a424850518bf0b656498d063c5cb2  ./usr/prog/klipper/klippy/extras/hd_home.py
 a9a551a280d604ab08bb1b53a9b1fd6a  ./usr/prog/klipper/klippy/extras/heater_bed.py
