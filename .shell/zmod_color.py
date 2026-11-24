@@ -17,6 +17,12 @@ SKIP_LINE_FIRST_CHARS = frozenset('GMXYZEFgmxyzef')
 
 NO_EXCLUDE_FIELDS = ['temp', 'temp_manual', 'temp_wait']
 
+# Проверка движения прутка по энкодерам fm_ex0..3 после загрузки, продувки и подбора PA
+MOVE_CHECK_MM_PER_PULSE = 3.0   # пруток на один импульс энкодера (замер на Creator 5 Pro: 2.7-3.2 мм)
+MOVE_CHECK_MIN_RATIO = 0.4      # меньше этой доли ожидаемых импульсов = пруток не движется
+MOVE_CHECK_MIN_LENGTH = 10.0    # выдавливание короче не проверяется
+MOVE_CHECK_SETTLE = 0.5         # ожидание последних импульсов после M400, с
+
 def atomic_write(path, text):
     path = os.path.realpath(path)
     directory = os.path.dirname(path) or '.'
@@ -101,7 +107,10 @@ TRANSLATIONS = {
         'send_print': "Отправить на печать",
         'spool_info': "Катушка {}: {}/{}",
         'grab': "Взять",
-        'plate': "Плата {}/{}"
+        'plate': "Плата {}/{}",
+        'filament_not_moving_title': "T{}: пруток не движется",
+        'filament_not_moving': "T{0}: пруток не движется. Голова выдавила {1:.0f} мм, но энкодер насчитал {2} из примерно {3:.0f} импульсов. Проверьте, что пруток T{0} захвачен шестернями экструдера, и загрузите его снова.",
+        'print_not_started': "Печать не запущена. {}"
     },
     'en': {
         'auto_assign_no_color_match': "Auto-assignment: Couldn't match color for {}",
@@ -141,7 +150,10 @@ TRANSLATIONS = {
         'send_print': "Start print",
         'spool_info': "Spool {}: {}/{}",
         'grab': "Grab",
-        'plate': "Plate {}/{}"
+        'plate': "Plate {}/{}",
+        'filament_not_moving_title': "T{} filament not moving",
+        'filament_not_moving': "T{0}: filament is not moving. The head extruded {1:.0f} mm, but its encoder counted {2} of about {3:.0f} pulses. Check that the T{0} filament is in the extruder gears, then load it again.",
+        'print_not_started': "Print not started. {}"
     },
     'de': {
         'auto_assign_no_color_match': "Autozuweisung: Farbe für {} nicht gefunden",
@@ -691,9 +703,84 @@ class zmod_color:
         # Инициализация датчиков наличия и движения филамента для ex0-ex3
         self.fd_sensors = [self.printer.lookup_object(f"filament_switch_sensor fd_ex{i}", None) for i in range(4)]
         self.fm_sensors = [self.printer.lookup_object(f"filament_motion_sensor fm_ex{i}", None) for i in range(4)]
+        self.fm_pulses = [0, 0, 0, 0]
+        for i, sensor in enumerate(self.fm_sensors):
+            if sensor is not None and hasattr(sensor, 'runout_helper'):
+                self._count_pulses(i, sensor)
 
         if not self.display:
             self._publish_lanes({i + 1: (m, '#' + h) for i, (m, h, _) in enumerate(self._slot_states())})
+
+    # Проверка движения прутка.
+    # _DISABLE_SENSOR выключает датчики на время загрузки, продувки и подбора PA,
+    # поэтому пруток, не захваченный шестернями, проходил эти шаги незамеченным.
+    # Энкодер при этом продолжает считать: сравниваем выдавленную длину с импульсами.
+
+    def _count_pulses(self, i, sensor):
+        helper = sensor.runout_helper
+        orig_note = helper.note_filament_present
+        orig_update = sensor._update_filament_runout_pos
+        last_update = {'eventtime': None}
+
+        def update(eventtime=None):
+            last_update['eventtime'] = eventtime
+            return orig_update(eventtime)
+
+        def note(*args, **kwargs):
+            # Импульс энкодера (encoder_event):
+            #   Klipper Flashforge: note_filament_present(True)
+            #   Klipper 13+:        _update_filament_runout_pos(t), затем note_filament_present(t, True)
+            # Таймер проверки обрыва передаёт другие аргументы и не обновляет позицию.
+            if not kwargs and (args == (True,) or (
+                    len(args) == 2 and args[1] is True
+                    and args[0] is not None and args[0] == last_update['eventtime'])):
+                self.fm_pulses[i] += 1
+            last_update['eventtime'] = None
+            return orig_note(*args, **kwargs)
+
+        sensor._update_filament_runout_pos = update
+        helper.note_filament_present = note
+
+    def _move_start(self, t):
+        if not 0 <= t < len(self.fm_sensors) or self.fm_sensors[t] is None:
+            return None
+        self.toolhead.wait_moves()
+        return (self.fm_sensors[t]._get_extruder_pos(), self.fm_pulses[t])
+
+    def _move_check(self, gcmd, t, start, print_start=0):
+        if start is None:
+            return
+        self.toolhead.wait_moves()
+        reactor = self.printer.get_reactor()
+        reactor.pause(reactor.monotonic() + MOVE_CHECK_SETTLE)
+        moved = self.fm_sensors[t]._get_extruder_pos() - start[0]
+        pulses = self.fm_pulses[t] - start[1]
+        expected = moved / MOVE_CHECK_MM_PER_PULSE
+        needed = max(2, int(expected * MOVE_CHECK_MIN_RATIO))
+        logging.info(f"zmod_color: T{t} extruded {moved:.1f} mm, encoder {pulses} pulses (need {needed})")
+        if moved < MOVE_CHECK_MIN_LENGTH or pulses >= needed:
+            return
+
+        msg = self._t('filament_not_moving', t, moved, pulses, expected)
+        self.gcode.run_script_from_command(
+            f"_NOTIFY MSG=\"{msg}\" TYPE=filament\n"
+            f"_SHOW_MSG TITLE=\"{self._t('filament_not_moving_title', t)}\" MSG=\"{msg}\"")
+
+        now = reactor.monotonic()
+        if self.printer.lookup_object('print_stats').get_status(now).get('state') == 'printing':
+            gcmd.respond_raw(f"!! {msg}")
+            self.gcode.run_script_from_command("PAUSE")
+            return
+
+        if print_start == 1:
+            # Печать останавливается до того, как PRINT_ZCOLOR вернёт голову на место
+            try:
+                self.gcode.run_script_from_command("_T_OUT")
+            except Exception:
+                logging.exception("zmod_color: _T_OUT after a failed filament check")
+            self.gcode.run_script_from_command("TURN_OFF_HEATERS")
+            msg = self._t('print_not_started', msg)
+        raise gcmd.error(msg)
 
     def temp_z_offset(self):
         if self.macro_obj is not None:
@@ -2381,7 +2468,7 @@ class zmod_color:
 
                     script = []
                     for t_fiz in used_fiz:
-                        script.append(f"_T_TEST_PA T_FIZ={t_fiz}")
+                        script.append(f"_T_TEST_PA T_FIZ={t_fiz} PRINT_START=1")
                     script.append("M400")
                     self.gcode.run_script_from_command("\n".join(script))
 
@@ -2391,10 +2478,10 @@ class zmod_color:
                     save_variables = {} if self.save_variables == None else self.save_variables.allVariables
                     if save_variables.get('purge_all_extruders', 0) != 0:
                         for t_fiz in [t for t in used_fiz if t != t_start]:
-                            self.gcode.run_script_from_command(f"_T_PREPARE T={t_fiz} BED_TEMP={bed_temp:.1f} FULL=1")
+                            self.gcode.run_script_from_command(f"_T_PREPARE T={t_fiz} BED_TEMP={bed_temp:.1f} FULL=1 PRINT_START=1")
 
                 script = [
-                    f"_T_PREPARE T={t_start} BED_TEMP={bed_temp:.1f} FULL=0",
+                    f"_T_PREPARE T={t_start} BED_TEMP={bed_temp:.1f} FULL=0 PRINT_START=1",
                     "M400",
                     f"SDCARD_PRINT_FILE FILENAME=\"{fname}\""
                 ]
@@ -2733,6 +2820,7 @@ class zmod_color:
 
         if napr == 1: # Загрузить
             self.gcode.run_script_from_command(f"_WAIT_TEMP T={zslot-1} EXTRUDER_TEMP={slot_config.get('temp_manual'):.3f} BED_TEMP=0 FROM=_T_IN_ZCOLOR")
+            move_start = self._move_start(zslot - 1)
             if slot_config.get('filament_tube_length')>150.0:
                 script = [
                     "G92 E0",
@@ -2760,6 +2848,7 @@ class zmod_color:
                 "_T_OUT NO_Z=0"
             ]
             self.gcode.run_script_from_command("\n".join(script))
+            self._move_check(gcmd, zslot - 1, move_start)
 
         if not is_absolute:
             self.gcode.run_script_from_command("G91")
@@ -2773,6 +2862,7 @@ class zmod_color:
     # Подготовка экструдера
     def cmd_T_PREPARE(self, gcmd):
         full = gcmd.get_int('FULL', 1)
+        print_start = gcmd.get_int('PRINT_START', 0)
         bed_temp = gcmd.get_float('BED_TEMP', 65.0)
         t = gcmd.get_int('T', 0)
         if t < 0 or t >= self.color_limit:
@@ -2795,6 +2885,7 @@ class zmod_color:
             self.gcode.run_script_from_command("G90")
 
         wiper_z = slot_config.get('wiper_z')
+        move_start = self._move_start(t)
 
         script = [
             "SET_GCODE_VARIABLE MACRO=_WAIT_E_VARS VARIABLE=start_e0 VALUE=0",
@@ -2836,6 +2927,7 @@ class zmod_color:
             script.append(f"_WIPER X={slot_config.get('wiper_x'):.3f} Y={slot_config.get('wiper_y'):.3f} Z={wiper_z:.3f} DROP={float(slot_config.get('filament_drop_length', 0))} START=0")
 
         self.gcode.run_script_from_command("\n".join(script))
+        self._move_check(gcmd, t, move_start, print_start)
 
         if full == 1:
             self.gcode.run_script_from_command(f"_WAIT_TEMP T={t} EXTRUDER_TEMP={slot_config.get('temp_wait'):.3f} BED_TEMP={bed_temp:.1f} FROM=_T_PREPARE")
@@ -3096,6 +3188,7 @@ class zmod_color:
 
     def cmd_TEST_PA(self, gcmd):
         t_fiz = gcmd.get_int('T_FIZ', None)
+        print_start = gcmd.get_int('PRINT_START', 0)
         if t_fiz is None or t_fiz < 0 or t_fiz > 3:
             raise gcmd.error("Error: T_FIZ parameter is required and must be between 0 and 3")
 
@@ -3153,6 +3246,7 @@ class zmod_color:
             "SET_PIN PIN=enable_pin_tmc_y VALUE=1.00"
         ]
         self.gcode.run_script_from_command("\n".join(script))
+        move_start = self._move_start(t_fiz)
 
         # Матрица тестовых значений и Y-координат
         #test_values = [0.010, 0.020, 0.015, 0.035, 0.025, 0.030, 0.040]
@@ -3251,6 +3345,8 @@ class zmod_color:
             "SET_PIN PIN=enable_pin_tmc_y VALUE=0.00"
         ]
         self.gcode.run_script_from_command("\n".join(script))
+        # PA, подобранный при прутке, который не двигался, не сохраняем
+        self._move_check(gcmd, t_fiz, move_start, print_start)
 
         # Среднее арифметическое минимальных успешных значений из каждого прохода
         final_pa = sum(pass_minimums) / len(pass_minimums)
