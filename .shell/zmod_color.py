@@ -2806,6 +2806,7 @@ class zmod_color:
             f"M140 S{bed_temp:.1f}",                            # Греем стол
             f"M104 S{slot_config.get('temp'):.3f} T{t}",        # Греем сопло
             f"_T_IN T={t}",                                     # Берем сопло
+            "_ENABLE_SENSOR",
         ]
         if float(slot_config.get('filament_drop_length', 0)) != 0.0:
             script += [
@@ -2815,18 +2816,15 @@ class zmod_color:
                 "M400",
                 f"_WAIT_TEMP T={t} EXTRUDER_TEMP={slot_config.get('temp'):.3f} BED_TEMP=0 FROM=_T_PREPARE",
                 "SET_FAN_SPEED FAN=chamber_fan SPEED=0.000",        # Сливаем пластик
-                "_DISABLE_SENSOR",
                 "G92 E0",
                 f"G1 E{slot_config.get('filament_drop_length'):.3f} F240",
                 "M400",
-                "_ENABLE_SENSOR",
                 f"M106 P1 S{slot_config.get('fan_speed'):.3f}",
-                "_DISABLE_SENSOR",
                 "G92 E0",
                 "G1 E-5 F240",
                 "M400"
             ]
-        script += ["_ENABLE_SENSOR",
+        script += [
             "G1 X250 F6000",                              # Идем к резинке
             f"_WIPER X={slot_config.get('wiper_x'):.3f} Y={slot_config.get('wiper_y'):.3f} Z={wiper_z:.3f} DROP={float(slot_config.get('filament_drop_length', 0))} START=1",
             "M114"
@@ -3138,6 +3136,7 @@ class zmod_color:
 
         script = [
             f"_T_IN T={t_fiz}",
+            "_ENABLE_SENSOR",
             "G1 X250 F12000",                                   # Идем в корзину
             f"G1 Y{slot_config.get('trash_y'):.2f} F24000",
             f"G1 X{slot_config.get('trash_x'):.2f} F2400",
