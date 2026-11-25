@@ -3135,13 +3135,10 @@ class zmod_color:
                 f"  trash_position:    X={slot_config.get('trash_x')} Y={slot_config.get('trash_y')} Z={slot_config.get('trash_z')}"
             )
 
-        script = []
-        if not self.display:
-            script.append("_DISABLE_SENSOR")
-        script.append(f"_T_IN T={t_fiz}")
-        if not self.display:
-            script.append("_ENABLE_SENSOR")
-        script += [
+        script = [
+            "_DISABLE_SENSOR",
+            f"_T_IN T={t_fiz}",
+            "_ENABLE_SENSOR",
             "G1 X250 F12000",                                   # Идем в корзину
             f"G1 Y{slot_config.get('trash_y'):.2f} F24000",
             f"G1 X{slot_config.get('trash_x'):.2f} F2400",
@@ -3243,8 +3240,7 @@ class zmod_color:
             else:
                 gcmd.respond_raw(f"// Pass {pass_num + 1} failed to find any good PA value.")
 
-        if not self.display:
-            self.gcode.run_script_from_command("_DISABLE_SENSOR")
+        self.gcode.run_script_from_command("_DISABLE_SENSOR")
 
         if len(pass_minimums) == 0:
             raise gcmd.error("PA calibration failed: No successful values found in any pass.")
