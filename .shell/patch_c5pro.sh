@@ -21,6 +21,7 @@ fix_firmwareExe "a43f43d135106bf67de8a1b54fad396c" 2984192 0 # 2.0.0 Tiger
 fix_firmwareExe "b36afd3cb11ae6b9ba3cc2f0d1e79267" 2985136 0 # 2.0.0 Pro Tiger
 fix_firmwareExe "d6a0d7c31eb16e0520e25c67a8b6221a" 6681680 0 # 2.0.0
 fix_firmwareExe "01c4480248a21fd33528ae0eeb38b5a5" 6683536 0 # 2.0.0 Pro
+fix_firmwareExe "53fdeeff12b9abdda7e7bff5a862c3c0" 6688772 0 # 2.0.1
 
 grep -q zmod_klipper_c5 /usr/data/zmod/klipper/.git/config || rm -rf /usr/data/zmod/klipper/
 mkdir -p /usr/data/zmod/klipper/
