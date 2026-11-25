@@ -2805,9 +2805,12 @@ class zmod_color:
             "UPDATE_DELAYED_GCODE ID=_WAIT_E_CHECK DURATION=0",
             f"M140 S{bed_temp:.1f}",                            # Греем стол
             f"M104 S{slot_config.get('temp'):.3f} T{t}",        # Греем сопло
-            f"_T_IN T={t}",                                     # Берем сопло
-            "_ENABLE_SENSOR",
         ]
+        if not self.display:
+            script.append("_DISABLE_SENSOR")
+        script.append(f"_T_IN T={t}")                         # Берем сопло
+        if not self.display:
+            script.append("_ENABLE_SENSOR")
         if float(slot_config.get('filament_drop_length', 0)) != 0.0:
             script += [
                 "G1 X250 F12000",                                   # Идем в корзину
@@ -2852,6 +2855,8 @@ class zmod_color:
         self.gcode.run_script_from_command("\n".join(script))
 
         if full == 1:
+            if not self.display:
+                self.gcode.run_script_from_command("_DISABLE_SENSOR")
             self.gcode.run_script_from_command("_T_OUT")
         else:
             self.gcode.run_script_from_command(f"SDCARD_SET_CHANNEL CHANNEL={t}")
@@ -3134,9 +3139,13 @@ class zmod_color:
                 f"  trash_position:    X={slot_config.get('trash_x')} Y={slot_config.get('trash_y')} Z={slot_config.get('trash_z')}"
             )
 
-        script = [
-            f"_T_IN T={t_fiz}",
-            "_ENABLE_SENSOR",
+        script = []
+        if not self.display:
+            script.append("_DISABLE_SENSOR")
+        script.append(f"_T_IN T={t_fiz}")
+        if not self.display:
+            script.append("_ENABLE_SENSOR")
+        script += [
             "G1 X250 F12000",                                   # Идем в корзину
             f"G1 Y{slot_config.get('trash_y'):.2f} F24000",
             f"G1 X{slot_config.get('trash_x'):.2f} F2400",
@@ -3237,6 +3246,9 @@ class zmod_color:
                 gcmd.respond_raw(f"// Pass {pass_num + 1} minimum success: {min_success:.3f}")
             else:
                 gcmd.respond_raw(f"// Pass {pass_num + 1} failed to find any good PA value.")
+
+        if not self.display:
+            self.gcode.run_script_from_command("_DISABLE_SENSOR")
 
         if len(pass_minimums) == 0:
             raise gcmd.error("PA calibration failed: No successful values found in any pass.")
