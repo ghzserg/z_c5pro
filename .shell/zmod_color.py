@@ -2853,7 +2853,7 @@ class zmod_color:
         self.gcode.run_script_from_command("\n".join(script))
 
         if full == 1:
-            self.gcode.run_script_from_command("_DISABLE_SENSOR\n_T_OUT")
+            self.gcode.run_script_from_command("_T_OUT")
         else:
             self.gcode.run_script_from_command(f"SDCARD_SET_CHANNEL CHANNEL={t}")
 
