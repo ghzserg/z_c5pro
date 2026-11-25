@@ -2723,6 +2723,7 @@ class zmod_color:
             self.gcode.run_script_from_command("G90")
 
         script = [
+            "_DISABLE_SENSOR",
             f"_T_IN T={zslot-1}",
             "G1 X250 F12000",
             f"G1 Y{slot_config.get('trash_y'):.3f} F24000",
