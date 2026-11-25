@@ -3240,8 +3240,6 @@ class zmod_color:
             else:
                 gcmd.respond_raw(f"// Pass {pass_num + 1} failed to find any good PA value.")
 
-        self.gcode.run_script_from_command("_DISABLE_SENSOR")
-
         if len(pass_minimums) == 0:
             raise gcmd.error("PA calibration failed: No successful values found in any pass.")
 
