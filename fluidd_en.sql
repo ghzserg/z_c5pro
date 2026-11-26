@@ -549,11 +549,11 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('flui
             "visible": true
         },
         {
-            "alias": "",
+            "alias": "VFA_GRAPH",
             "categoryId": "244d667b-c410-4e01-9bf1-e8e0b9deabe2",
             "color": "",
             "disabledWhilePrinting": true,
-            "name": "t_info",
+            "name": "vfa_graph_test",
             "order": 10,
             "visible": true
         },
@@ -562,8 +562,17 @@ INSERT INTO "main"."namespace_store" ("namespace", "key", "value") VALUES ('flui
             "categoryId": "244d667b-c410-4e01-9bf1-e8e0b9deabe2",
             "color": "",
             "disabledWhilePrinting": true,
-            "name": "test_pa",
+            "name": "t_info",
             "order": 11,
+            "visible": true
+        },
+        {
+            "alias": "",
+            "categoryId": "244d667b-c410-4e01-9bf1-e8e0b9deabe2",
+            "color": "",
+            "disabledWhilePrinting": true,
+            "name": "test_pa",
+            "order": 12,
             "visible": true
         },
         {
