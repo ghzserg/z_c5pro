@@ -1563,6 +1563,25 @@ class zmod_color:
             raise gcmd.error(msg)
 
 
+    def _check_dock_seated(self, gcmd, tool):
+        # В кармане допустимо одновременное срабатывание двух датчиков T.
+        # Остальные экструдеры должны оставаться на своих местах.
+        now = self.printer.get_reactor().monotonic()
+        seated = False
+        for i in range(4):
+            home_obj = self.home_objs[i]
+            grab_obj = self.grab_objs[i]
+            home = home_obj.get_status(now).get('state') if home_obj else None
+            grab = grab_obj.get_status(now).get('state') if grab_obj else None
+            if i == tool and grab == "PRESSED" and home in ("PRESSED", "RELEASED"):
+                seated = home == "PRESSED"
+            elif i != tool and home == "PRESSED" and grab == "RELEASED":
+                continue
+            else:
+                msg = f"Ошибка датчиков T{i}: парковка={home}, захват={grab}" if self.lang == 'ru' else f"Tool T{i} sensor error: dock={home}, grab={grab}"
+                raise gcmd.error(msg)
+        return seated
+
     # Вернуть экструдер на место
     def cmd_T_OUT(self, gcmd):
         silent = gcmd.get_int('SILENT', 1)
@@ -1652,6 +1671,7 @@ class zmod_color:
         park_x_minus_10 = park_x - 10.0
 
         success = False
+        recovery_z = None
         last_error_msg = ""
         for attempt in range(1, self.retry + 1):
             if self.lang == 'ru':
@@ -1666,31 +1686,74 @@ class zmod_color:
                 f"G1 Y{park_y:.3f}",
                 f"G1 X{park_x_minus_10:.3f}",
                 f"G1 X{park_x:.3f} F{self.t_dock_speed * 60}",
-                "MOTOR_RELEASE",
-                f"G1 X250 F{self.t_undock_speed * 60}",
-                "MOTOR_STOP",
-                f"SET_VELOCITY_LIMIT ACCEL={self.t_end_accel}",
                 "M400"
             ]
             self.gcode.run_script_from_command("\n".join(script))
 
             try:
-                active_t = self._get_active_extruder(gcmd)
-                if active_t == -1:
-                    success = True
+                seated = self._check_dock_seated(gcmd, t_index)
+                if not seated:
+                    reactor = self.printer.get_reactor()
+                    reactor.pause(reactor.monotonic() + 0.1)
+                    seated = self._check_dock_seated(gcmd, t_index)
+                if seated:
+                    self.gcode.run_script_from_command("\n".join([
+                        "MOTOR_RELEASE",
+                        f"G1 X250 F{self.t_undock_speed * 60}",
+                        "MOTOR_STOP",
+                        f"SET_VELOCITY_LIMIT ACCEL={self.t_end_accel}",
+                        "M400"
+                    ]))
+                    active_t = self._get_active_extruder(gcmd)
+                    success = active_t == -1
+                    if not success:
+                        last_error_msg = f"Ошибка датчиков после освобождения T{t_index}" if self.lang == 'ru' else f"Sensor error after releasing T{t_index}"
+                    # После открытия защёлки нельзя повторять парковку вслепую.
                     break
-                else:
-                    last_error_msg = f"Экструдер T{active_t} все еще в голове" if self.lang == 'ru' else f"Extruder T{active_t} is still on head"
+
+                last_error_msg = f"T{t_index} не установлен в держатель" if self.lang == 'ru' else f"T{t_index} is not seated in its dock"
+                if attempt == self.retry:
+                    break
+                # Отходим от держателя с закрытой защёлкой.
+                self.gcode.run_script_from_command(
+                    f"G1 X250 F{self.t_undock_speed * 60}\nM400")
+                if self._check_dock_seated(gcmd, t_index):
+                    raise gcmd.error(last_error_msg)
+
+                # При возможном пропуске шагов базируем XY только один раз.
+                if recovery_z is None:
+                    status = self.toolhead.get_status(self.printer.get_reactor().monotonic())
+                    z = self.toolhead.get_position()[2]
+                    if 'z' not in status.get('homed_axes', '') or z + 2.0 > status['axis_maximum'][2]:
+                        msg = "Невозможно безопасно базировать XY: нет запаса по Z" if self.lang == 'ru' else "Cannot safely rehome XY: Z is not homed or has no clearance"
+                        raise gcmd.error(msg)
+                    msg = f"T{t_index} не припаркован: повторное базирование XY" if self.lang == 'ru' else f"T{t_index} not seated: rehoming XY"
+                    gcmd.respond_info(msg)
+                    recovery_z = z
+                    self.toolhead.manual_move([None, None, z + 2.0], 20.0)
+                    self.toolhead.wait_moves()
+                    self.gcode.run_script_from_command("G28.1 X Y\nM400")
+                    if self._check_dock_seated(gcmd, t_index):
+                        raise gcmd.error(last_error_msg)
             except Exception as e:
                 last_error_msg = str(e)
+                break
 
-            if self.lang == 'ru':
-                gcmd.respond_raw(f"// Предупреждение: Ошибка разгрузки T{t_index} ({last_error_msg}). Повтор...")
-            else:
-                gcmd.respond_raw(f"// Warning: Failed to unload T{t_index} ({last_error_msg}). Retrying...")
+        if not success:
+            self.active_tool_id = -2
+            if not self.printer.is_shutdown():
+                self.gcode.run_script_from_command(f"SET_VELOCITY_LIMIT ACCEL={self.t_end_accel}")
+                if not is_absolute:
+                    self.gcode.run_script_from_command("G91")
+            msg = f"Ошибка T_OUT: {last_error_msg}" if self.lang == 'ru' else f"T_OUT error: {last_error_msg}"
+            raise gcmd.error(msg)
 
         if not is_absolute:
             self.gcode.run_script_from_command("G91")
+
+        if recovery_z is not None:
+            self.toolhead.manual_move([None, None, recovery_z], 20.0)
+            self.toolhead.wait_moves()
 
         if 'z' in homed_axes:
             if no_z != 1:
@@ -1698,11 +1761,6 @@ class zmod_color:
         else:
             if active_mesh:
                 self.gcode.run_script_from_command(f"BED_MESH_PROFILE LOAD={active_mesh} FROM=_T_OUT")
-
-        if not success:
-            self.active_tool_id = -2
-            msg = f"Ошибка T_OUT после {self.retry} попыток. Последний сбой: {last_error_msg}" if self.lang == 'ru' else f"T_OUT Error after {self.retry} attempts. Last failure: {last_error_msg}"
-            raise gcmd.error(msg)
 
         # Восстановление физических координат
         if save_t == 1:
