@@ -579,6 +579,14 @@ class zmod_color:
         self.lang = 'en'
         self.plate_z = config.getfloat('plate_z', 0.061)        # Толщина платы по Z
         self.retry = config.getint('retry', 5)        # Сколько делать повторов при ошибке
+        self.t_accel = config.getfloat('t_accel', 8000.0, above=0.0)
+        self.t_end_accel = config.getfloat('t_end_accel', 20000.0, above=0.0)
+        self.t_travel_speed = config.getfloat('t_travel_speed', 500.0, above=0.0)
+        self.t_dock_speed = config.getfloat('t_dock_speed', 90.0, above=0.0)
+        self.t_undock_speed = config.getfloat('t_undock_speed', 80.0, above=0.0)
+        self.t_grab_exit_speed = config.getfloat('t_grab_exit_speed', 25.0, above=0.0)
+        # Макрос _B_CHANGE_FILAMENT читает скорость из printer.configfile.settings.
+        config.getfloat('t_return_speed', 500.0, above=0.0)
 
         temp_defaults = {
             "PLA":      {"temp": 220, "temp_manual": 250, "temp_wait": 120},
@@ -1499,21 +1507,21 @@ class zmod_color:
                 gcmd.respond_info(f"Grab attempt for T{t_index}: {attempt} of {self.retry}...")
 
             script = [
-                "SET_VELOCITY_LIMIT ACCEL=8000",
+                f"SET_VELOCITY_LIMIT ACCEL={self.t_accel}",
                 "_SET_GCODE_OFFSET_FAST X=0 Y=0 MOVE=1 MOVE_SPEED=100 FROM=_T_IN",
-                "G1 X250 F30000",
+                f"G1 X250 F{self.t_travel_speed * 60}",
                 f"G1 Y{park_y:.3f}",
                 "G1 X280",
-                f"G1 X{park_x:.3f} F5400",
+                f"G1 X{park_x:.3f} F{self.t_dock_speed * 60}",
                 "M400",
                 "MOTOR_GRAB",
-                f"G1 X{park_x_minus_20:.3f} F4800",
+                f"G1 X{park_x_minus_20:.3f} F{self.t_undock_speed * 60}",
                 "MOTOR_GRAB2",
-                "G1 X250 F1500",
+                f"G1 X250 F{self.t_grab_exit_speed * 60}",
                 f"_SET_GCODE_OFFSET_FAST X={calc_offset_x:.3f} Y={calc_offset_y:.3f} MOVE=1 MOVE_SPEED=100 FROM=_T_IN",
                 f"_SET_GCODE_OFFSET_FAST Z={calc_offset_z:.3f} MOVE=1 MOVE_SPEED=40 FROM=_T_IN",
                 "MOTOR_STOP",
-                "SET_VELOCITY_LIMIT ACCEL=20000",
+                f"SET_VELOCITY_LIMIT ACCEL={self.t_end_accel}",
                 "M400"
             ]
             self.gcode.run_script_from_command("\n".join(script))
@@ -1534,16 +1542,16 @@ class zmod_color:
                 gcmd.respond_raw(f"// Warning: Failed to grab T{t_index} ({last_error_msg}). Retrying...")
 
             self.gcode.run_script_from_command("\n".join([
-                "SET_VELOCITY_LIMIT ACCEL=8000",
+                f"SET_VELOCITY_LIMIT ACCEL={self.t_accel}",
                 "_SET_GCODE_OFFSET_FAST X=0 Y=0 MOVE=1 MOVE_SPEED=100 FROM=_T_IN",
-                "G1 X250 F30000",
+                f"G1 X250 F{self.t_travel_speed * 60}",
                 f"G1 Y{park_y:.3f}",
                 f"G1 X{park_x - 10.0:.3f}",
-                f"G1 X{park_x:.3f} F5400",
+                f"G1 X{park_x:.3f} F{self.t_dock_speed * 60}",
                 "MOTOR_RELEASE",
-                "G1 X250 F4800",
+                f"G1 X250 F{self.t_undock_speed * 60}",
                 "MOTOR_STOP",
-                "SET_VELOCITY_LIMIT ACCEL=20000",
+                f"SET_VELOCITY_LIMIT ACCEL={self.t_end_accel}",
                 "M400"
             ]))
 
@@ -1652,16 +1660,16 @@ class zmod_color:
                 gcmd.respond_info(f"Unload attempt for T{t_index}: {attempt} of {self.retry}...")
 
             script = [
-                "SET_VELOCITY_LIMIT ACCEL=8000",
+                f"SET_VELOCITY_LIMIT ACCEL={self.t_accel}",
                 "_SET_GCODE_OFFSET_FAST X=0 Y=0 MOVE=1 MOVE_SPEED=100 FROM=_T_OUT",
-                "G1 X250 F30000.000",
+                f"G1 X250 F{self.t_travel_speed * 60}",
                 f"G1 Y{park_y:.3f}",
                 f"G1 X{park_x_minus_10:.3f}",
-                f"G1 X{park_x:.3f} F5400",
+                f"G1 X{park_x:.3f} F{self.t_dock_speed * 60}",
                 "MOTOR_RELEASE",
-                "G1 X250 F4800",
+                f"G1 X250 F{self.t_undock_speed * 60}",
                 "MOTOR_STOP",
-                "SET_VELOCITY_LIMIT ACCEL=20000",
+                f"SET_VELOCITY_LIMIT ACCEL={self.t_end_accel}",
                 "M400"
             ]
             self.gcode.run_script_from_command("\n".join(script))
