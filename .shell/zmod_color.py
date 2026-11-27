@@ -3144,10 +3144,26 @@ class zmod_color:
                 f"  trash_position:    X={slot_config.get('trash_x')} Y={slot_config.get('trash_y')} Z={slot_config.get('trash_z')}"
             )
 
+        reactor = self.printer.get_reactor()
+        self.gcode.run_script_from_command("_DISABLE_SENSOR")
+        try:
+            self.gcode.run_script_from_command(f"_T_IN T={t_fiz}")
+        finally:
+            if not self.printer.is_shutdown():
+                self.gcode.run_script_from_command("_ENABLE_SENSOR")
+
+        extruder = self.toolhead.get_extruder()
+        old_pa = extruder.get_status(reactor.monotonic())['pressure_advance']
+        status = self.toolhead.get_status(reactor.monotonic())
+        old_accel = status['max_accel']
+        old_scv = status['square_corner_velocity']
+        old_user_accel = getattr(self.toolhead, 'user_max_accel', None)
+        xy_disabled = False
+        disabling_xy = False
+        self.gcode.run_script_from_command("SAVE_GCODE_STATE NAME=_T_TEST_PA_STATE")
+
         script = [
-            "_DISABLE_SENSOR",
-            f"_T_IN T={t_fiz}",
-            "_ENABLE_SENSOR",
+            "G90",
             "G1 X250 F12000",                                   # Идем в корзину
             f"G1 Y{slot_config.get('trash_y'):.2f} F24000",
             f"G1 X{slot_config.get('trash_x'):.2f} F2400",
@@ -3159,108 +3175,154 @@ class zmod_color:
             "M83",
             "SET_VELOCITY_LIMIT ACCEL=5000",
             "SET_VELOCITY_LIMIT SQUARE_CORNER_VELOCITY=9",
-            "SET_PIN PIN=enable_pin_tmc_x VALUE=1.00",          # Отключаем моторы X и Y
-            "SET_PIN PIN=enable_pin_tmc_y VALUE=1.00"
+            "M400"
         ]
-        self.gcode.run_script_from_command("\n".join(script))
 
-        # Матрица тестовых значений и Y-координат
-        #test_values = [0.010, 0.020, 0.015, 0.035, 0.025, 0.030, 0.040]
-        #y_starts = [50.0, 55.0, 60.0, 65.0, 70.0, 75.0, 80.0]
+        try:
+            self.gcode.run_script_from_command("\n".join(script))
+            disabling_xy = True
+            self.gcode.run_script_from_command(
+                "SET_PIN PIN=enable_pin_tmc_x VALUE=1.00\n"
+                "SET_PIN PIN=enable_pin_tmc_y VALUE=1.00\nM400")
+            xy_disabled = True
+            disabling_xy = False
 
-        # Сортированный ряд: pa_min, pa_min+0.005, ..., pa_max (шаг фиксирован)
-        step_pa = 0.005
-        sorted_vals = []
-        v = pa_min
-        while v <= pa_max + 1e-9:
-            sorted_vals.append(round(v, 4))
-            v += step_pa
-        N = len(sorted_vals)
+            # Сортированный ряд: pa_min, pa_min+0.005, ..., pa_max (шаг фиксирован)
+            step_pa = 0.005
+            sorted_vals = []
+            v = pa_min
+            while v <= pa_max + 1e-9:
+                sorted_vals.append(round(v, 4))
+                v += step_pa
+            N = len(sorted_vals)
 
-        # Зигзаг (один выше, один ниже), последним — максимум.
-        # Для N=7: [0, 2, 1, 5, 3, 4, 6] → 0.010, 0.020, 0.015, 0.035, 0.025, 0.030, 0.040
-        if N == 1:
-            order = [0]
-        elif N == 2:
-            order = [0, 1]
-        elif N == 3:
-            order = [0, 2, 1]
-        elif N == 4:
-            order = [0, 2, 1, 3]
-        else:
-            order = [0, 2, 1, N - 2]
-            order += list(range(3, N - 2))
-            order.append(N - 1)
-
-        test_values = [sorted_vals[i] for i in order]
-        y_starts = [50.0 + i * 5.0 for i in range(N)]
-
-        pass_minimums = []
-
-        for pass_num in range(pa_count):
-            if self.lang == 'ru':
-                gcmd.respond_info(f"Проход {pass_num + 1}/{pa_count}...")
+            # Зигзаг (один выше, один ниже), последним — максимум.
+            # Для N=7: [0, 2, 1, 5, 3, 4, 6] → 0.010, 0.020, 0.015, 0.035, 0.025, 0.030, 0.040
+            if N == 1:
+                order = [0]
+            elif N == 2:
+                order = [0, 1]
+            elif N == 3:
+                order = [0, 2, 1]
+            elif N == 4:
+                order = [0, 2, 1, 3]
             else:
-                gcmd.respond_info(f"Pass {pass_num + 1}/{pa_count}...")
-            min_success = None
+                order = [0, 2, 1, N - 2]
+                order += list(range(3, N - 2))
+                order.append(N - 1)
 
-            for i, val in enumerate(test_values):
-                y = y_starts[i]
+            test_values = [sorted_vals[i] for i in order]
+            y_starts = [50.0 + i * 5.0 for i in range(N)]
 
-                self.pa_obj._pa_action_cmd.send([11, 666])
-                self.gcode.run_script_from_command(f"SET_PRESSURE_ADVANCE ADVANCE={val:.3f}")
+            pass_minimums = []
 
-                # Печать тестового паттерна
-                script = [
-                    f"G1 X40 Y{y:.3f} F30000",
-                    "G1 F1080",
-                    "G1 X60 E1.13573",
-                    "G1 F10980",
-                    "G1 X100 E2.27146",
-                    "G1 F1080",
-                    "G1 X120 E1.13573",
-                    "G1 F1080",
-                    "G1 X140 E1.13573",
-                    "G1 F10980",
-                    "G1 X180 E2.27146",
-                    "G1 F1080",
-                    "G1 X200 E1.13573",
-                ]
-                self.gcode.run_script_from_command("\n".join(script))
+            for pass_num in range(pa_count):
+                if self.lang == 'ru':
+                    gcmd.respond_info(f"Проход {pass_num + 1}/{pa_count}...")
+                else:
+                    gcmd.respond_info(f"Pass {pass_num + 1}/{pa_count}...")
+                min_success = None
 
-                # Отправка команды на МК: закончить анализ (ACTION=0, PC=666)
-                self.pa_obj._pa_action_cmd.send([0, 666])
-                self.gcode.run_script_from_command("M400")
+                for i, val in enumerate(test_values):
+                    y = y_starts[i]
 
-                # Опрос МК для получения оценки (0 или 9)
-                result = self.pa_obj._pa_value_get_cmd.send()
-                res_val = int(result["value"])
+                    self.gcode.run_script_from_command(
+                        f"SET_PRESSURE_ADVANCE EXTRUDER={extruder.get_name()} ADVANCE={val:.3f}\n"
+                        f"G1 X40 Y{y:.3f} F30000\nM400")
+                    if self.printer.is_shutdown():
+                        raise gcmd.error("PA calibration interrupted")
+                    # Печать тестового паттерна
+                    script = [
+                        "G1 F1080",
+                        "G1 X60 E1.13573",
+                        "G1 F10980",
+                        "G1 X100 E2.27146",
+                        "G1 F1080",
+                        "G1 X120 E1.13573",
+                        "G1 F1080",
+                        "G1 X140 E1.13573",
+                        "G1 F10980",
+                        "G1 X180 E2.27146",
+                        "G1 F1080",
+                        "G1 X200 E1.13573",
+                    ]
+                    try:
+                        self.pa_obj._pa_action_cmd.send([11, 666])
+                        self.gcode.run_script_from_command("\n".join(script))
+                    finally:
+                        if not self.printer.is_shutdown():
+                            try:
+                                self.gcode.run_script_from_command("M400")
+                            finally:
+                                self.pa_obj._pa_action_cmd.send([0, 666])
+                    if self.printer.is_shutdown():
+                        raise gcmd.error("PA calibration interrupted")
 
-                gcmd.respond_raw(f"// PA {val:.3f}: {'Ok' if res_val == 9 else '-'}")
+                    # Даём МК завершить анализ перед чтением результата.
+                    reactor.pause(reactor.monotonic() + 0.05)
 
-                # Ищем минимальное успешное значение в этом проходе
-                if res_val == 9:
-                    if min_success is None or val < min_success:
-                        min_success = val
+                    # Опрос МК для получения оценки (0 или 9)
+                    result = self.pa_obj._pa_value_get_cmd.send()
+                    res_val = int(result["value"])
 
-            if min_success is not None:
-                pass_minimums.append(min_success)
-                gcmd.respond_raw(f"// Pass {pass_num + 1} minimum success: {min_success:.3f}")
-            else:
-                gcmd.respond_raw(f"// Pass {pass_num + 1} failed to find any good PA value.")
+                    gcmd.respond_raw(f"// PA {val:.3f}: {'Ok' if res_val == 9 else '-'}")
 
-        if len(pass_minimums) == 0:
+                    # Ищем минимальное успешное значение в этом проходе
+                    if res_val == 9:
+                        if min_success is None or val < min_success:
+                            min_success = val
+                        # Меньшего значения в диапазоне нет.
+                        if val == sorted_vals[0]:
+                            break
+
+                if min_success is not None:
+                    pass_minimums.append(min_success)
+                    gcmd.respond_raw(f"// Pass {pass_num + 1} minimum success: {min_success:.3f}")
+                else:
+                    gcmd.respond_raw(f"// Pass {pass_num + 1} failed to find any good PA value.")
+
+        finally:
+            if disabling_xy and not self.printer.is_shutdown():
+                # Не перемещаем каретку при неизвестном состоянии драйверов.
+                self.printer.invoke_shutdown("PA: incomplete XY driver disable")
+            if not self.printer.is_shutdown():
+                try:
+                    if xy_disabled:
+                        # Возвращаем виртуальные координаты до включения XY.
+                        self.gcode.run_script_from_command("\n".join([
+                            f"M104.1 T{t_fiz} S{slot_config.get('temp_wait'):.2f}",
+                            f"G1 Y{slot_config.get('trash_y'):.2f} F24000",
+                            f"G1 X{slot_config.get('trash_x'):.2f} F2400",
+                            "M400",
+                            "SET_PIN PIN=enable_pin_tmc_x VALUE=0.00",
+                            "SET_PIN PIN=enable_pin_tmc_y VALUE=0.00",
+                            "M400"
+                        ]))
+                except Exception:
+                    # При невозможности восстановить XY не разрешаем
+                    # дальнейшие перемещения с неверными координатами.
+                    logging.exception("PA: failed to restore XY")
+                    self.printer.invoke_shutdown("PA: failed to restore XY")
+                    raise
+                finally:
+                    if not self.printer.is_shutdown():
+                        try:
+                            self.gcode.run_script_from_command(
+                                f"SET_PRESSURE_ADVANCE EXTRUDER={extruder.get_name()} ADVANCE={old_pa:.6f}")
+                        finally:
+                            try:
+                                self.gcode.run_script_from_command(
+                                    f"SET_VELOCITY_LIMIT ACCEL={old_accel:.6f} SQUARE_CORNER_VELOCITY={old_scv:.6f}")
+                                if old_user_accel is not None:
+                                    self.toolhead.user_max_accel = old_user_accel
+                            finally:
+                                self.gcode.run_script_from_command(
+                                    "RESTORE_GCODE_STATE NAME=_T_TEST_PA_STATE MOVE=0")
+
+        if self.printer.is_shutdown():
+            raise gcmd.error("PA calibration interrupted")
+        if not pass_minimums:
             raise gcmd.error("PA calibration failed: No successful values found in any pass.")
-
-        script = [
-            f"M104.1 T{t_fiz} S{slot_config.get('temp_wait'):.2f}", # Остужаем экструдер
-            f"G1 Y{slot_config.get('trash_y'):.2f} F24000",       # Возвращаем координаты
-            f"G1 X{slot_config.get('trash_x'):.2f} F2400",
-            "M400",
-            "SET_PIN PIN=enable_pin_tmc_x VALUE=0.00",            # Включаем моторы
-            "SET_PIN PIN=enable_pin_tmc_y VALUE=0.00"
-        ]
-        self.gcode.run_script_from_command("\n".join(script))
 
         # Среднее арифметическое минимальных успешных значений из каждого прохода
         final_pa = sum(pass_minimums) / len(pass_minimums)
