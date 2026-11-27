@@ -1563,6 +1563,25 @@ class zmod_color:
             raise gcmd.error(msg)
 
 
+    def _check_dock_seated(self, gcmd, tool):
+        # В кармане допустимо одновременное срабатывание двух датчиков T.
+        # Остальные экструдеры должны оставаться на своих местах.
+        now = self.printer.get_reactor().monotonic()
+        seated = False
+        for i in range(4):
+            home_obj = self.home_objs[i]
+            grab_obj = self.grab_objs[i]
+            home = home_obj.get_status(now).get('state') if home_obj else None
+            grab = grab_obj.get_status(now).get('state') if grab_obj else None
+            if i == tool and grab == "PRESSED" and home in ("PRESSED", "RELEASED"):
+                seated = home == "PRESSED"
+            elif i != tool and home == "PRESSED" and grab == "RELEASED":
+                continue
+            else:
+                msg = f"Ошибка датчиков T{i}: парковка={home}, захват={grab}" if self.lang == 'ru' else f"Tool T{i} sensor error: dock={home}, grab={grab}"
+                raise gcmd.error(msg)
+        return seated
+
     # Вернуть экструдер на место
     def cmd_T_OUT(self, gcmd):
         silent = gcmd.get_int('SILENT', 1)
@@ -1652,6 +1671,7 @@ class zmod_color:
         park_x_minus_10 = park_x - 10.0
 
         success = False
+        recovery_z = None
         last_error_msg = ""
         for attempt in range(1, self.retry + 1):
             if self.lang == 'ru':
@@ -1666,31 +1686,74 @@ class zmod_color:
                 f"G1 Y{park_y:.3f}",
                 f"G1 X{park_x_minus_10:.3f}",
                 f"G1 X{park_x:.3f} F{self.t_dock_speed * 60}",
-                "MOTOR_RELEASE",
-                f"G1 X250 F{self.t_undock_speed * 60}",
-                "MOTOR_STOP",
-                f"SET_VELOCITY_LIMIT ACCEL={self.t_end_accel}",
                 "M400"
             ]
             self.gcode.run_script_from_command("\n".join(script))
 
             try:
-                active_t = self._get_active_extruder(gcmd)
-                if active_t == -1:
-                    success = True
+                seated = self._check_dock_seated(gcmd, t_index)
+                if not seated:
+                    reactor = self.printer.get_reactor()
+                    reactor.pause(reactor.monotonic() + 0.1)
+                    seated = self._check_dock_seated(gcmd, t_index)
+                if seated:
+                    self.gcode.run_script_from_command("\n".join([
+                        "MOTOR_RELEASE",
+                        f"G1 X250 F{self.t_undock_speed * 60}",
+                        "MOTOR_STOP",
+                        f"SET_VELOCITY_LIMIT ACCEL={self.t_end_accel}",
+                        "M400"
+                    ]))
+                    active_t = self._get_active_extruder(gcmd)
+                    success = active_t == -1
+                    if not success:
+                        last_error_msg = f"Ошибка датчиков после освобождения T{t_index}" if self.lang == 'ru' else f"Sensor error after releasing T{t_index}"
+                    # После открытия защёлки нельзя повторять парковку вслепую.
                     break
-                else:
-                    last_error_msg = f"Экструдер T{active_t} все еще в голове" if self.lang == 'ru' else f"Extruder T{active_t} is still on head"
+
+                last_error_msg = f"T{t_index} не установлен в держатель" if self.lang == 'ru' else f"T{t_index} is not seated in its dock"
+                if attempt == self.retry:
+                    break
+                # Отходим от держателя с закрытой защёлкой.
+                self.gcode.run_script_from_command(
+                    f"G1 X250 F{self.t_undock_speed * 60}\nM400")
+                if self._check_dock_seated(gcmd, t_index):
+                    raise gcmd.error(last_error_msg)
+
+                # При возможном пропуске шагов базируем XY только один раз.
+                if recovery_z is None:
+                    status = self.toolhead.get_status(self.printer.get_reactor().monotonic())
+                    z = self.toolhead.get_position()[2]
+                    if 'z' not in status.get('homed_axes', '') or z + 2.0 > status['axis_maximum'][2]:
+                        msg = "Невозможно безопасно базировать XY: нет запаса по Z" if self.lang == 'ru' else "Cannot safely rehome XY: Z is not homed or has no clearance"
+                        raise gcmd.error(msg)
+                    msg = f"T{t_index} не припаркован: повторное базирование XY" if self.lang == 'ru' else f"T{t_index} not seated: rehoming XY"
+                    gcmd.respond_info(msg)
+                    recovery_z = z
+                    self.toolhead.manual_move([None, None, z + 2.0], 20.0)
+                    self.toolhead.wait_moves()
+                    self.gcode.run_script_from_command("G28.1 X Y\nM400")
+                    if self._check_dock_seated(gcmd, t_index):
+                        raise gcmd.error(last_error_msg)
             except Exception as e:
                 last_error_msg = str(e)
+                break
 
-            if self.lang == 'ru':
-                gcmd.respond_raw(f"// Предупреждение: Ошибка разгрузки T{t_index} ({last_error_msg}). Повтор...")
-            else:
-                gcmd.respond_raw(f"// Warning: Failed to unload T{t_index} ({last_error_msg}). Retrying...")
+        if not success:
+            self.active_tool_id = -2
+            if not self.printer.is_shutdown():
+                self.gcode.run_script_from_command(f"SET_VELOCITY_LIMIT ACCEL={self.t_end_accel}")
+                if not is_absolute:
+                    self.gcode.run_script_from_command("G91")
+            msg = f"Ошибка T_OUT: {last_error_msg}" if self.lang == 'ru' else f"T_OUT error: {last_error_msg}"
+            raise gcmd.error(msg)
 
         if not is_absolute:
             self.gcode.run_script_from_command("G91")
+
+        if recovery_z is not None:
+            self.toolhead.manual_move([None, None, recovery_z], 20.0)
+            self.toolhead.wait_moves()
 
         if 'z' in homed_axes:
             if no_z != 1:
@@ -1698,11 +1761,6 @@ class zmod_color:
         else:
             if active_mesh:
                 self.gcode.run_script_from_command(f"BED_MESH_PROFILE LOAD={active_mesh} FROM=_T_OUT")
-
-        if not success:
-            self.active_tool_id = -2
-            msg = f"Ошибка T_OUT после {self.retry} попыток. Последний сбой: {last_error_msg}" if self.lang == 'ru' else f"T_OUT Error after {self.retry} attempts. Last failure: {last_error_msg}"
-            raise gcmd.error(msg)
 
         # Восстановление физических координат
         if save_t == 1:
@@ -3144,10 +3202,26 @@ class zmod_color:
                 f"  trash_position:    X={slot_config.get('trash_x')} Y={slot_config.get('trash_y')} Z={slot_config.get('trash_z')}"
             )
 
+        reactor = self.printer.get_reactor()
+        self.gcode.run_script_from_command("_DISABLE_SENSOR")
+        try:
+            self.gcode.run_script_from_command(f"_T_IN T={t_fiz}")
+        finally:
+            if not self.printer.is_shutdown():
+                self.gcode.run_script_from_command("_ENABLE_SENSOR")
+
+        extruder = self.toolhead.get_extruder()
+        old_pa = extruder.get_status(reactor.monotonic())['pressure_advance']
+        status = self.toolhead.get_status(reactor.monotonic())
+        old_accel = status['max_accel']
+        old_scv = status['square_corner_velocity']
+        old_user_accel = getattr(self.toolhead, 'user_max_accel', None)
+        xy_disabled = False
+        disabling_xy = False
+        self.gcode.run_script_from_command("SAVE_GCODE_STATE NAME=_T_TEST_PA_STATE")
+
         script = [
-            "_DISABLE_SENSOR",
-            f"_T_IN T={t_fiz}",
-            "_ENABLE_SENSOR",
+            "G90",
             "G1 X250 F12000",                                   # Идем в корзину
             f"G1 Y{slot_config.get('trash_y'):.2f} F24000",
             f"G1 X{slot_config.get('trash_x'):.2f} F2400",
@@ -3159,108 +3233,154 @@ class zmod_color:
             "M83",
             "SET_VELOCITY_LIMIT ACCEL=5000",
             "SET_VELOCITY_LIMIT SQUARE_CORNER_VELOCITY=9",
-            "SET_PIN PIN=enable_pin_tmc_x VALUE=1.00",          # Отключаем моторы X и Y
-            "SET_PIN PIN=enable_pin_tmc_y VALUE=1.00"
+            "M400"
         ]
-        self.gcode.run_script_from_command("\n".join(script))
 
-        # Матрица тестовых значений и Y-координат
-        #test_values = [0.010, 0.020, 0.015, 0.035, 0.025, 0.030, 0.040]
-        #y_starts = [50.0, 55.0, 60.0, 65.0, 70.0, 75.0, 80.0]
+        try:
+            self.gcode.run_script_from_command("\n".join(script))
+            disabling_xy = True
+            self.gcode.run_script_from_command(
+                "SET_PIN PIN=enable_pin_tmc_x VALUE=1.00\n"
+                "SET_PIN PIN=enable_pin_tmc_y VALUE=1.00\nM400")
+            xy_disabled = True
+            disabling_xy = False
 
-        # Сортированный ряд: pa_min, pa_min+0.005, ..., pa_max (шаг фиксирован)
-        step_pa = 0.005
-        sorted_vals = []
-        v = pa_min
-        while v <= pa_max + 1e-9:
-            sorted_vals.append(round(v, 4))
-            v += step_pa
-        N = len(sorted_vals)
+            # Сортированный ряд: pa_min, pa_min+0.005, ..., pa_max (шаг фиксирован)
+            step_pa = 0.005
+            sorted_vals = []
+            v = pa_min
+            while v <= pa_max + 1e-9:
+                sorted_vals.append(round(v, 4))
+                v += step_pa
+            N = len(sorted_vals)
 
-        # Зигзаг (один выше, один ниже), последним — максимум.
-        # Для N=7: [0, 2, 1, 5, 3, 4, 6] → 0.010, 0.020, 0.015, 0.035, 0.025, 0.030, 0.040
-        if N == 1:
-            order = [0]
-        elif N == 2:
-            order = [0, 1]
-        elif N == 3:
-            order = [0, 2, 1]
-        elif N == 4:
-            order = [0, 2, 1, 3]
-        else:
-            order = [0, 2, 1, N - 2]
-            order += list(range(3, N - 2))
-            order.append(N - 1)
-
-        test_values = [sorted_vals[i] for i in order]
-        y_starts = [50.0 + i * 5.0 for i in range(N)]
-
-        pass_minimums = []
-
-        for pass_num in range(pa_count):
-            if self.lang == 'ru':
-                gcmd.respond_info(f"Проход {pass_num + 1}/{pa_count}...")
+            # Зигзаг (один выше, один ниже), последним — максимум.
+            # Для N=7: [0, 2, 1, 5, 3, 4, 6] → 0.010, 0.020, 0.015, 0.035, 0.025, 0.030, 0.040
+            if N == 1:
+                order = [0]
+            elif N == 2:
+                order = [0, 1]
+            elif N == 3:
+                order = [0, 2, 1]
+            elif N == 4:
+                order = [0, 2, 1, 3]
             else:
-                gcmd.respond_info(f"Pass {pass_num + 1}/{pa_count}...")
-            min_success = None
+                order = [0, 2, 1, N - 2]
+                order += list(range(3, N - 2))
+                order.append(N - 1)
 
-            for i, val in enumerate(test_values):
-                y = y_starts[i]
+            test_values = [sorted_vals[i] for i in order]
+            y_starts = [50.0 + i * 5.0 for i in range(N)]
 
-                self.pa_obj._pa_action_cmd.send([11, 666])
-                self.gcode.run_script_from_command(f"SET_PRESSURE_ADVANCE ADVANCE={val:.3f}")
+            pass_minimums = []
 
-                # Печать тестового паттерна
-                script = [
-                    f"G1 X40 Y{y:.3f} F30000",
-                    "G1 F1080",
-                    "G1 X60 E1.13573",
-                    "G1 F10980",
-                    "G1 X100 E2.27146",
-                    "G1 F1080",
-                    "G1 X120 E1.13573",
-                    "G1 F1080",
-                    "G1 X140 E1.13573",
-                    "G1 F10980",
-                    "G1 X180 E2.27146",
-                    "G1 F1080",
-                    "G1 X200 E1.13573",
-                ]
-                self.gcode.run_script_from_command("\n".join(script))
+            for pass_num in range(pa_count):
+                if self.lang == 'ru':
+                    gcmd.respond_info(f"Проход {pass_num + 1}/{pa_count}...")
+                else:
+                    gcmd.respond_info(f"Pass {pass_num + 1}/{pa_count}...")
+                min_success = None
 
-                # Отправка команды на МК: закончить анализ (ACTION=0, PC=666)
-                self.pa_obj._pa_action_cmd.send([0, 666])
-                self.gcode.run_script_from_command("M400")
+                for i, val in enumerate(test_values):
+                    y = y_starts[i]
 
-                # Опрос МК для получения оценки (0 или 9)
-                result = self.pa_obj._pa_value_get_cmd.send()
-                res_val = int(result["value"])
+                    self.gcode.run_script_from_command(
+                        f"SET_PRESSURE_ADVANCE EXTRUDER={extruder.get_name()} ADVANCE={val:.3f}\n"
+                        f"G1 X40 Y{y:.3f} F30000\nM400")
+                    if self.printer.is_shutdown():
+                        raise gcmd.error("PA calibration interrupted")
+                    # Печать тестового паттерна
+                    script = [
+                        "G1 F1080",
+                        "G1 X60 E1.13573",
+                        "G1 F10980",
+                        "G1 X100 E2.27146",
+                        "G1 F1080",
+                        "G1 X120 E1.13573",
+                        "G1 F1080",
+                        "G1 X140 E1.13573",
+                        "G1 F10980",
+                        "G1 X180 E2.27146",
+                        "G1 F1080",
+                        "G1 X200 E1.13573",
+                    ]
+                    try:
+                        self.pa_obj._pa_action_cmd.send([11, 666])
+                        self.gcode.run_script_from_command("\n".join(script))
+                    finally:
+                        if not self.printer.is_shutdown():
+                            try:
+                                self.gcode.run_script_from_command("M400")
+                            finally:
+                                self.pa_obj._pa_action_cmd.send([0, 666])
+                    if self.printer.is_shutdown():
+                        raise gcmd.error("PA calibration interrupted")
 
-                gcmd.respond_raw(f"// PA {val:.3f}: {'Ok' if res_val == 9 else '-'}")
+                    # Даём МК завершить анализ перед чтением результата.
+                    reactor.pause(reactor.monotonic() + 0.05)
 
-                # Ищем минимальное успешное значение в этом проходе
-                if res_val == 9:
-                    if min_success is None or val < min_success:
-                        min_success = val
+                    # Опрос МК для получения оценки (0 или 9)
+                    result = self.pa_obj._pa_value_get_cmd.send()
+                    res_val = int(result["value"])
 
-            if min_success is not None:
-                pass_minimums.append(min_success)
-                gcmd.respond_raw(f"// Pass {pass_num + 1} minimum success: {min_success:.3f}")
-            else:
-                gcmd.respond_raw(f"// Pass {pass_num + 1} failed to find any good PA value.")
+                    gcmd.respond_raw(f"// PA {val:.3f}: {'Ok' if res_val == 9 else '-'}")
 
-        if len(pass_minimums) == 0:
+                    # Ищем минимальное успешное значение в этом проходе
+                    if res_val == 9:
+                        if min_success is None or val < min_success:
+                            min_success = val
+                        # Меньшего значения в диапазоне нет.
+                        if val == sorted_vals[0]:
+                            break
+
+                if min_success is not None:
+                    pass_minimums.append(min_success)
+                    gcmd.respond_raw(f"// Pass {pass_num + 1} minimum success: {min_success:.3f}")
+                else:
+                    gcmd.respond_raw(f"// Pass {pass_num + 1} failed to find any good PA value.")
+
+        finally:
+            if disabling_xy and not self.printer.is_shutdown():
+                # Не перемещаем каретку при неизвестном состоянии драйверов.
+                self.printer.invoke_shutdown("PA: incomplete XY driver disable")
+            if not self.printer.is_shutdown():
+                try:
+                    if xy_disabled:
+                        # Возвращаем виртуальные координаты до включения XY.
+                        self.gcode.run_script_from_command("\n".join([
+                            f"M104.1 T{t_fiz} S{slot_config.get('temp_wait'):.2f}",
+                            f"G1 Y{slot_config.get('trash_y'):.2f} F24000",
+                            f"G1 X{slot_config.get('trash_x'):.2f} F2400",
+                            "M400",
+                            "SET_PIN PIN=enable_pin_tmc_x VALUE=0.00",
+                            "SET_PIN PIN=enable_pin_tmc_y VALUE=0.00",
+                            "M400"
+                        ]))
+                except Exception:
+                    # При невозможности восстановить XY не разрешаем
+                    # дальнейшие перемещения с неверными координатами.
+                    logging.exception("PA: failed to restore XY")
+                    self.printer.invoke_shutdown("PA: failed to restore XY")
+                    raise
+                finally:
+                    if not self.printer.is_shutdown():
+                        try:
+                            self.gcode.run_script_from_command(
+                                f"SET_PRESSURE_ADVANCE EXTRUDER={extruder.get_name()} ADVANCE={old_pa:.6f}")
+                        finally:
+                            try:
+                                self.gcode.run_script_from_command(
+                                    f"SET_VELOCITY_LIMIT ACCEL={old_accel:.6f} SQUARE_CORNER_VELOCITY={old_scv:.6f}")
+                                if old_user_accel is not None:
+                                    self.toolhead.user_max_accel = old_user_accel
+                            finally:
+                                self.gcode.run_script_from_command(
+                                    "RESTORE_GCODE_STATE NAME=_T_TEST_PA_STATE MOVE=0")
+
+        if self.printer.is_shutdown():
+            raise gcmd.error("PA calibration interrupted")
+        if not pass_minimums:
             raise gcmd.error("PA calibration failed: No successful values found in any pass.")
-
-        script = [
-            f"M104.1 T{t_fiz} S{slot_config.get('temp_wait'):.2f}", # Остужаем экструдер
-            f"G1 Y{slot_config.get('trash_y'):.2f} F24000",       # Возвращаем координаты
-            f"G1 X{slot_config.get('trash_x'):.2f} F2400",
-            "M400",
-            "SET_PIN PIN=enable_pin_tmc_x VALUE=0.00",            # Включаем моторы
-            "SET_PIN PIN=enable_pin_tmc_y VALUE=0.00"
-        ]
-        self.gcode.run_script_from_command("\n".join(script))
 
         # Среднее арифметическое минимальных успешных значений из каждого прохода
         final_pa = sum(pass_minimums) / len(pass_minimums)
